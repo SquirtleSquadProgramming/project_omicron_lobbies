@@ -17,11 +17,11 @@ It contains the:
 - Host Geographical Region
 - Max Players
 - Lobby Name
-- Password (bcrypt)
+- Password
 
-| Type | Version | Flags | IpV(4/6) Address     | Port  | Region | Max Players | Lobby Name    | Password?  |
-| ---- | ------- | ----- | -------------------- | ----- | ------ | ----------- | ------------- | ---------- |
-| `u4` | `u4`    | `u8`  | `[u8; 4] / [u16; 8]` | `u16` | `u8`   | `u8`        | `u8`, n bytes | `[u8, 60]` |
+| Type | Version | Flags | IpV(4/6) Address     | Port  | Region | Max Players | Lobby Name    | Password?     |
+| ---- | ------- | ----- | -------------------- | ----- | ------ | ----------- | ------------- | ------------- |
+| `u4` | `u4`    | `u8`  | `[u8; 4] / [u16; 8]` | `u16` | `u8`   | `u8`        | `u8`, n bytes | `u8`, n bytes |
 
 ## Modify:
 It consists of `field_type` followed by `field_value`,
@@ -50,10 +50,10 @@ It contains:
 - IpV4 / IpV6
 - Host IP Address
 - Host Port
-- Password (bcrypt)
+- Password
 
 The password field is only needed if there is password protection on the lobby.
 
-| Type | Version | IpV  | IpV(4/6) Address     | Port  | Password?  |
-| ---- | ------- | ---- | -------------------- | ----- | ---------- |
-| `u4` | `u4`    | `u8` | `[u8; 4] / [u16; 8]` | `u16` | `[u8, 60]` |
+| Type | Version | IpV  | IpV(4/6) Address     | Port  | Password?     |
+| ---- | ------- | ---- | -------------------- | ----- | ------------- |
+| `u4` | `u4`    | `u8` | `[u8; 4] / [u16; 8]` | `u16` | `u8`, n bytes |
