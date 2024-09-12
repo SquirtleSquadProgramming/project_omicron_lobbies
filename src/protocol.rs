@@ -1,10 +1,13 @@
 #![allow(dead_code)]
+#![allow(unused_variables)]
 
 #[derive(Debug)]
 pub enum ParseError {
     EmptyMessage,
     InvalidType(u8),
     MissingMessagePart,
+    InvalidRegion,
+    InvalidName,
 }
 
 pub enum IpAddress {
@@ -40,6 +43,8 @@ mod version0 {
     use super::{IpAddress, ParseError};
 
     const VERSION: u8 = 0;
+    const MAX_LOBBY_NAME_SIZE: usize = 32;
+    const MAX_LOBBY_PASS_SIZE: usize = 32;
 
     #[repr(u8)]
     pub enum Types {
@@ -95,6 +100,53 @@ mod version0 {
         }
     }
 
+    #[repr(u8)]
+    pub enum Region {
+        Africa,
+        Asia,
+        Europe,
+        NorthAmerica,
+        SouthAmerica,
+        Oceania,
+    }
+
+    impl TryInto<Region> for u8 {
+        type Error = ParseError;
+
+        fn try_into(self) -> Result<Region, Self::Error> {
+            let region = match self {
+                0 => Region::Africa,
+                1 => Region::Asia,
+                2 => Region::Europe,
+                3 => Region::NorthAmerica,
+                4 => Region::SouthAmerica,
+                5 => Region::Oceania,
+                _ => Err(ParseError::InvalidRegion)?,
+            };
+
+            Ok(region)
+        }
+    }
+
+    fn deserialise_string(
+        message: &mut std::slice::Iter<u8>,
+        max_length: usize,
+    ) -> Result<String, ParseError> {
+        let length = *message.next().ok_or(ParseError::MissingMessagePart)? as usize;
+        if length > max_length {
+            return Err(ParseError::InvalidName);
+        }
+
+        let mut lobby_name = String::with_capacity(length);
+
+        for _ in 0..length {
+            let ch = *message.next().ok_or(ParseError::MissingMessagePart)? as char;
+            lobby_name.push(ch);
+        }
+
+        Ok(lobby_name)
+    }
+
     pub fn parse_message(message: &[u8], ip_address: IpAddress) -> Result<(), ParseError> {
         let m_type: u8 = message.get(0).ok_or(ParseError::EmptyMessage)? >> 4;
 
@@ -110,13 +162,25 @@ mod version0 {
 
     pub fn create_lobby(message: &[u8], ip_address: IpAddress) -> Result<(), ParseError> {
         let mut msg = message.iter();
-        let flags: Flags = (*msg.next().ok_or(ParseError::MissingMessagePart)?).into();
+        let flags: Flags = msg
+            .next()
+            .ok_or(ParseError::MissingMessagePart)?
+            .to_owned()
+            .into();
         let ip = IpAddress::from_message(&mut msg, flags.is_ipv6)?;
         let port = {
             let high = *msg.next().ok_or(ParseError::MissingMessagePart)? as u16;
             let low = *msg.next().ok_or(ParseError::MissingMessagePart)? as u16;
             high << 8 + low
         };
+        let region: Region = msg
+            .next()
+            .ok_or(ParseError::MissingMessagePart)?
+            .to_owned()
+            .try_into()?;
+        let max_players: u8 = *msg.next().ok_or(ParseError::MissingMessagePart)?;
+        let lobby_name: String = deserialise_string(&mut msg, MAX_LOBBY_NAME_SIZE)?;
+        let lobby_password: String = deserialise_string(&mut msg, MAX_LOBBY_PASS_SIZE)?;
 
         todo!()
     }
