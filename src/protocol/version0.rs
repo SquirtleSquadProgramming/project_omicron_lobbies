@@ -1,3 +1,5 @@
+use crate::database::Lobby;
+
 use super::{IpAddress, ParseError};
 
 const VERSION: u8 = 0;
@@ -41,7 +43,7 @@ pub enum FieldType {
     Players = 7,
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Flags {
     is_ipv6: bool,
     is_public: bool,
@@ -59,6 +61,7 @@ impl Into<Flags> for u8 {
 }
 
 #[repr(u8)]
+#[derive(Clone)]
 pub enum Region {
     Africa,
     Asia,
@@ -126,6 +129,9 @@ fn create_lobby(message: &[u8], ip_address: IpAddress) -> Result<(), ParseError>
         .to_owned()
         .into();
     let ip = IpAddress::from_message(&mut msg, flags.is_ipv6)?;
+    if ip != ip_address {
+        return Err(ParseError::MismatchedIP);
+    }
     let port = {
         let high = *msg.next().ok_or(ParseError::MissingMessagePart)? as u16;
         let low = *msg.next().ok_or(ParseError::MissingMessagePart)? as u16;
@@ -139,6 +145,16 @@ fn create_lobby(message: &[u8], ip_address: IpAddress) -> Result<(), ParseError>
     let max_players: u8 = *msg.next().ok_or(ParseError::MissingMessagePart)?;
     let lobby_name: String = deserialise_string(&mut msg, MAX_LOBBY_NAME_SIZE)?;
     let lobby_password: String = deserialise_string(&mut msg, MAX_LOBBY_PASS_SIZE)?;
+
+    let lobby = Lobby::new(
+        flags,
+        region,
+        ip,
+        port,
+        max_players,
+        lobby_name,
+        lobby_password,
+    );
 
     todo!()
 }

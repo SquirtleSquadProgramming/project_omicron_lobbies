@@ -8,8 +8,10 @@ pub enum ParseError {
     MissingMessagePart,
     InvalidRegion,
     InvalidName,
+    MismatchedIP,
 }
 
+#[derive(PartialEq, Eq, Clone)]
 pub enum IpAddress {
     IpV4([u8; 4]),
     IpV6([u16; 8]),
@@ -39,5 +41,16 @@ impl IpAddress {
     }
 }
 
+impl Display for IpAddress {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            IpAddress::IpV4(ip) => write!(f, "4/{}", ip.map(|n| n.to_string()).join(".")),
+            IpAddress::IpV6(ip) => write!(f, "6/{}", ip.map(|n| format!("{n:x}")).join(":")),
+        }
+    }
+}
+
 mod version0;
+use std::fmt::Display;
+
 pub use version0::{Flags, Region};

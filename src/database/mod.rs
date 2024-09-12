@@ -5,6 +5,7 @@ pub use in_memory::{create, delete, init, modify};
 
 use crate::protocol::{Flags, IpAddress, Region};
 
+#[derive(Clone)]
 pub struct Lobby {
     flags: Flags,
     region: Region,
