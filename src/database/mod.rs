@@ -16,6 +16,17 @@ pub struct Lobby {
     password: String, // bcrypted!
 }
 
+#[derive(Clone)]
+pub struct ModifyLobby {
+    flags: Option<Flags>,
+    region: Option<Region>,
+    host_ip: Option<IpAddress>,
+    host_port: Option<u16>,
+    max_players: Option<u8>,
+    lobby_name: Option<String>,
+    password: Option<String>, // bcrypted!
+}
+
 impl Lobby {
     pub fn new(
         flags: Flags,
