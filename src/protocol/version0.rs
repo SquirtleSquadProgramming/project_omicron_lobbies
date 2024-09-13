@@ -1,6 +1,8 @@
-use crate::database::Lobby;
-
 use super::{IpAddress, ParseError};
+use crate::{
+    database::{self, Lobby},
+    ConvertError, Errors,
+};
 
 const VERSION: u8 = 0;
 const MAX_LOBBY_NAME_SIZE: usize = 32;
@@ -33,14 +35,14 @@ impl From<Types> for u8 {
 
 #[repr(u8)]
 pub enum FieldType {
-    Flags = 0,
-    IpAddr = 1,
-    Port = 2,
-    Region = 3,
-    MaxCount = 4,
-    LName = 5,
-    LPass = 6,
-    Players = 7,
+    Flags(Flags) = 0,
+    IpAddr(IpAddress) = 1,
+    Port(u16) = 2,
+    Region(Region) = 3,
+    MaxCount(u8) = 4,
+    LName(String) = 5,
+    LPass(String) = 6,
+    Players(u8) = 7,
 }
 
 #[derive(Default, Clone)]
@@ -108,20 +110,23 @@ fn deserialise_string(
     Ok(lobby_name)
 }
 
-pub fn parse_message(message: &[u8], ip_address: IpAddress) -> Result<(), ParseError> {
-    let m_type: u8 = message.get(0).ok_or(ParseError::EmptyMessage)? >> 4;
+pub fn parse_message(message: &[u8], ip_address: IpAddress) -> Result<(), Errors> {
+    let m_type: u8 = message.get(0).ok_or(ParseError::EmptyMessage).convert()? >> 4;
 
     let typ: Types = m_type.into();
 
     match typ {
-        Types::None => Err(ParseError::InvalidType(m_type)),
-        Types::Create => create_lobby(&message[1..], ip_address),
-        Types::Modify => modify_lobby(&message[1..], ip_address),
-        Types::Destroy => destroy_lobby(&message[1..], ip_address),
+        Types::None => Err(ParseError::InvalidType(m_type)).convert(),
+        Types::Create => {
+            let lobby = parse_create_lobby(&message[1..], ip_address).convert()?;
+            database::create(lobby).convert()
+        }
+        Types::Modify => parse_modify_lobby(&message[1..], ip_address).convert(),
+        Types::Destroy => parse_destroy_lobby(&message[1..], ip_address).convert(),
     }
 }
 
-fn create_lobby(message: &[u8], ip_address: IpAddress) -> Result<(), ParseError> {
+fn parse_create_lobby(message: &[u8], ip_address: IpAddress) -> Result<Option<Lobby>, ParseError> {
     let mut msg = message.iter();
     let flags: Flags = msg
         .next()
@@ -146,7 +151,7 @@ fn create_lobby(message: &[u8], ip_address: IpAddress) -> Result<(), ParseError>
     let lobby_name: String = deserialise_string(&mut msg, MAX_LOBBY_NAME_SIZE)?;
     let lobby_password: String = deserialise_string(&mut msg, MAX_LOBBY_PASS_SIZE)?;
 
-    let lobby = Lobby::new(
+    Ok(Lobby::new(
         flags,
         region,
         ip,
@@ -154,15 +159,13 @@ fn create_lobby(message: &[u8], ip_address: IpAddress) -> Result<(), ParseError>
         max_players,
         lobby_name,
         lobby_password,
-    );
+    ))
+}
 
+fn parse_modify_lobby(message: &[u8], ip_address: IpAddress) -> Result<(), ParseError> {
     todo!()
 }
 
-fn modify_lobby(message: &[u8], ip_address: IpAddress) -> Result<(), ParseError> {
-    todo!()
-}
-
-fn destroy_lobby(message: &[u8], ip_address: IpAddress) -> Result<(), ParseError> {
+fn parse_destroy_lobby(message: &[u8], ip_address: IpAddress) -> Result<(), ParseError> {
     todo!()
 }

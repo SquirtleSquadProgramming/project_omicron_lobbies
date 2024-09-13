@@ -1,9 +1,15 @@
 #![allow(dead_code)]
 
+use crate::protocol::{Flags, IpAddress, Region};
 use bcrypt::{hash, DEFAULT_COST};
 pub use in_memory::{create, delete, init, modify};
 
-use crate::protocol::{Flags, IpAddress, Region};
+pub enum DatabaseError {
+    NotInitialised,
+    LobbyAlreadyExists,
+    LobbyDoesNotExist,
+    FailedToHashPassword,
+}
 
 #[derive(Clone)]
 pub struct Lobby {
@@ -14,17 +20,7 @@ pub struct Lobby {
     max_players: u8,
     lobby_name: String,
     password: String, // bcrypted!
-}
-
-#[derive(Clone)]
-pub struct ModifyLobby {
-    flags: Option<Flags>,
-    region: Option<Region>,
-    host_ip: Option<IpAddress>,
-    host_port: Option<u16>,
-    max_players: Option<u8>,
-    lobby_name: Option<String>,
-    password: Option<String>, // bcrypted!
+    current_players: u8,
 }
 
 impl Lobby {
@@ -46,6 +42,7 @@ impl Lobby {
             max_players,
             lobby_name,
             password,
+            current_players: 1,
         })
     }
 }

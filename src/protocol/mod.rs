@@ -9,6 +9,7 @@ pub enum ParseError {
     InvalidRegion,
     InvalidName,
     MismatchedIP,
+    PasswordCannotHash,
 }
 
 #[derive(PartialEq, Eq, Clone)]
@@ -53,4 +54,4 @@ impl Display for IpAddress {
 mod version0;
 use std::fmt::Display;
 
-pub use version0::{Flags, Region};
+pub use version0::{FieldType, Flags, Region};

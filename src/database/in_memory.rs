@@ -1,7 +1,6 @@
+use super::{DatabaseError, Lobby};
+use crate::protocol::{FieldType, IpAddress};
 use bcrypt::DEFAULT_COST;
-
-use super::{Lobby, ModifyLobby};
-use crate::protocol::IpAddress;
 use std::collections::HashMap;
 
 static mut DATABASE: Option<HashMap<String, Lobby>> = None;
@@ -12,71 +11,71 @@ pub fn init() {
     println!("Initialised database.");
 }
 
-pub fn create(lobby: Lobby) -> Result<(), ()> {
+pub fn create(lobby: Option<Lobby>) -> Result<(), DatabaseError> {
+    if lobby.is_none() {
+        return Err(DatabaseError::FailedToHashPassword);
+    }
     if let Some(db) = unsafe { &mut DATABASE } {
+        let lobby = lobby.unwrap();
         let key = lobby.host_ip.to_string();
         if db.contains_key(&key) {
-            return Err(());
+            return Err(DatabaseError::LobbyAlreadyExists);
         }
 
         db.insert(key, lobby);
+        Ok(())
+    } else {
+        Err(DatabaseError::NotInitialised)
     }
-    Ok(())
 }
 
-pub fn modify(host_ip: IpAddress, modify_lobby: ModifyLobby) -> Result<(), ()> {
+pub fn modify(host_ip: IpAddress, modify_lobby: Vec<FieldType>) -> Result<(), DatabaseError> {
     if let Some(db) = unsafe { &mut DATABASE } {
-        let key = host_ip.to_string();
-        let mut lobby = db.get(&key).ok_or(())?.clone();
+        let mut key = host_ip.to_string();
+        let mut lobby = db
+            .get(&key)
+            .ok_or(DatabaseError::LobbyDoesNotExist)?
+            .clone();
 
-        if let Some(flags) = modify_lobby.flags {
-            lobby.flags = flags;
+        for change in modify_lobby.iter() {
+            match change {
+                FieldType::Flags(value) => lobby.flags = value.clone(),
+                FieldType::IpAddr(value) => {
+                    db.remove(&key);
+                    lobby.host_ip = value.clone();
+                    key = value.to_string();
+                }
+                FieldType::Port(value) => lobby.host_port = value.clone(),
+                FieldType::Region(value) => lobby.region = value.clone(),
+                FieldType::MaxCount(value) => lobby.max_players = value.clone(),
+                FieldType::LName(value) => lobby.lobby_name = value.clone(),
+                FieldType::LPass(value) => {
+                    let password = bcrypt::hash(value.clone(), DEFAULT_COST)
+                        .ok()
+                        .ok_or(DatabaseError::FailedToHashPassword)?;
+                    lobby.password = password;
+                }
+                FieldType::Players(value) => lobby.current_players = value.clone(),
+            }
         }
-
-        if let Some(region) = modify_lobby.region {
-            lobby.region = region;
-        }
-
-        if let Some(host_port) = modify_lobby.host_port {
-            lobby.host_port = host_port;
-        }
-
-        if let Some(max_players) = modify_lobby.max_players {
-            lobby.max_players = max_players;
-        }
-
-        if let Some(lobby_name) = modify_lobby.lobby_name {
-            lobby.lobby_name = lobby_name;
-        }
-
-        if let Some(password) = modify_lobby.password {
-            let password = bcrypt::hash(password, DEFAULT_COST).ok().ok_or(())?;
-            lobby.password = password;
-        }
-
-        let key = if let Some(host_ip) = modify_lobby.host_ip {
-            db.remove(&key);
-            lobby.host_ip = host_ip.clone();
-            host_ip.to_string()
-        } else {
-            key
-        };
 
         db.insert(key, lobby);
+        Ok(())
+    } else {
+        Err(DatabaseError::NotInitialised)
     }
-    Ok(())
 }
 
-pub fn delete(host_ip: IpAddress) -> Result<(), ()> {
+pub fn delete(host_ip: IpAddress) -> Result<(), DatabaseError> {
     if let Some(db) = unsafe { &mut DATABASE } {
         let key = host_ip.to_string();
 
         if db.remove(&key).is_some() {
-            return Ok(());
+            Ok(())
+        } else {
+            Err(DatabaseError::LobbyDoesNotExist)
         }
-
-        return Err(());
     } else {
-        Err(())
+        Err(DatabaseError::NotInitialised)
     }
 }
