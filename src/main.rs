@@ -31,14 +31,21 @@ const IP_ADDRESS: &'static str = "192.168.1.100:5475";
 
 fn main() {
     database::init();
-    let listener = TcpListener::bind(IP_ADDRESS).unwrap();
+    let listener = match TcpListener::bind(IP_ADDRESS) {
+        Ok(listener) => listener,
+        Err(err) => {
+            etprintln!("Failed to bind the tcp server to {IP_ADDRESS}: {err:?}");
+            return;
+        }
+    };
+
     etprintln!("Connected on {IP_ADDRESS}");
 
     for stream in listener.incoming() {
         etprintln!("Connection incoming.");
         match stream {
             Ok(stream) => handle_connection(stream),
-            Err(_) => etprintln!("Connection failed!"),
+            Err(err) => etprintln!("Connection failed: {err:?}"),
         }
     }
 }
@@ -62,17 +69,13 @@ fn handle_connection(mut stream: TcpStream) {
     etprintln!("Recieved message: {message:?}");
 
     let parse_result = protocol::parse_message(message.as_slice(), client_address.into());
-    if parse_result.is_err() {
-        match parse_result {
-            Err(parse_error) => {
-                etprintln!("Bad message: {parse_error:?}");
-                return write_response(&mut stream, client_address, parse_error as u8);
-            }
-            Ok(_) => (),
+    let parse_output = match parse_result {
+        Err(err) => {
+            etprintln!("Bad message: {err:?}");
+            return write_response(&mut stream, client_address, err as u8);
         }
-    }
-
-    let parse_output = parse_result.unwrap();
+        Ok(po) => po,
+    };
 
     let database_result = match parse_output {
         protocol::ParseOutput::Create(lobby) => database::create(lobby),
@@ -95,20 +98,23 @@ fn handle_connection(mut stream: TcpStream) {
 }
 
 fn get_message(stream: &mut TcpStream, client_address: SocketAddr) -> Option<Vec<u8>> {
-    let mut thread_stream = stream.try_clone().expect("Failed to duplicate stream.");
+    let mut thread_stream = match stream.try_clone() {
+        Ok(ts) => ts,
+        Err(err) => {
+            etprintln!("Failed to duplicate stream: {err:?}");
+            return None;
+        }
+    };
     let recv_thread = thread::spawn(move || {
         let mut length: [u8; 1] = [0];
-        if thread_stream.read_exact(&mut length).is_err() {
-            etprintln!("Connection interupted: Failed to get message length.");
+        if let Err(err) = thread_stream.read_exact(&mut length) {
+            etprintln!("Connection interupted: Failed to get message length. Error: {err:?}");
             return None;
         };
 
         let mut message = vec![0; length[0] as usize];
-        if BufReader::new(&mut thread_stream)
-            .read_exact(&mut message)
-            .is_err()
-        {
-            etprintln!("Connection interupted: Failed to get message body.");
+        if let Err(err) = BufReader::new(&mut thread_stream).read_exact(&mut message) {
+            etprintln!("Connection interupted: Failed to get message body. Error: {err:?}");
             return None;
         }
 
@@ -118,13 +124,22 @@ fn get_message(stream: &mut TcpStream, client_address: SocketAddr) -> Option<Vec
     let start = Instant::now();
     loop {
         if recv_thread.is_finished() {
-            let message = recv_thread.join().expect("Failed to join thread!");
+            let message = match recv_thread.join() {
+                Ok(msg) => msg,
+                Err(err) => {
+                    etprintln!("Failed to join thread: {err:?}");
+                    return None;
+                }
+            };
             break message;
         }
         if start.elapsed() > Duration::from_secs(RECV_TIME_OUT) {
             etprintln!("Connection timed out.");
             write_response(stream, client_address, 101);
-            stream.shutdown(std::net::Shutdown::Both).unwrap();
+            match stream.shutdown(std::net::Shutdown::Both) {
+                Err(err) => etprintln!("Failed to shutdown connection: {err:?}"),
+                Ok(()) => (),
+            }
             return None;
         }
 
@@ -133,7 +148,7 @@ fn get_message(stream: &mut TcpStream, client_address: SocketAddr) -> Option<Vec
 }
 
 fn write_response(stream: &mut TcpStream, client_address: SocketAddr, response: u8) {
-    if stream.write(&[response]).is_err() {
-        etprintln!("Failed to write to stream. Client: {client_address} / Code: {response}");
+    if let Err(err) = stream.write(&[response]) {
+        etprintln!("Failed to write to stream. Client: {client_address} / Code: {response}. Error: {err:?}");
     }
 }
