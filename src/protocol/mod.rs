@@ -17,6 +17,11 @@ pub enum IpAddress {
     IpV4([u8; 4]),
     IpV6([u16; 8]),
 }
+impl Default for IpAddress {
+    fn default() -> Self {
+        Self::IpV4([0; 4])
+    }
+}
 
 impl IpAddress {
     fn from_message(msg: &mut std::slice::Iter<u8>, is_ipv6: bool) -> Result<Self, ParseError> {

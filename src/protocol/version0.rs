@@ -45,6 +45,21 @@ pub enum FieldType {
     Players(u8) = 7,
 }
 
+impl Into<FieldType> for u8 {
+    fn into(self) -> FieldType {
+        match self {
+            0 => FieldType::Flags(Flags::default()),
+            1 => FieldType::IpAddr(IpAddress::default()),
+            2 => FieldType::Port(0),
+            3 => FieldType::Region(Region::default()),
+            4 => FieldType::MaxCount(0),
+            5 => FieldType::LName(String::default()),
+            6 => FieldType::LPass(String::default()),
+            7 => FieldType::Players(0),
+        }
+    }
+}
+
 #[derive(Default, Clone)]
 pub struct Flags {
     is_ipv6: bool,
@@ -63,8 +78,9 @@ impl Into<Flags> for u8 {
 }
 
 #[repr(u8)]
-#[derive(Clone)]
+#[derive(Default, Clone)]
 pub enum Region {
+    #[default]
     Africa,
     Asia,
     Europe,
@@ -121,7 +137,9 @@ pub fn parse_message(message: &[u8], ip_address: IpAddress) -> Result<(), Errors
             let lobby = parse_create_lobby(&message[1..], ip_address).convert()?;
             database::create(lobby).convert()
         }
-        Types::Modify => parse_modify_lobby(&message[1..], ip_address).convert(),
+        Types::Modify => parse_modify_lobby(&message[1..], ip_address)
+            .convert()
+            .map(|_| ()),
         Types::Destroy => parse_destroy_lobby(&message[1..], ip_address).convert(),
     }
 }
@@ -162,8 +180,30 @@ fn parse_create_lobby(message: &[u8], ip_address: IpAddress) -> Result<Option<Lo
     ))
 }
 
-fn parse_modify_lobby(message: &[u8], ip_address: IpAddress) -> Result<(), ParseError> {
-    todo!()
+fn parse_modify_lobby(message: &[u8], ip_address: IpAddress) -> Result<Vec<FieldType>, ParseError> {
+    let mut modify = Vec::new();
+    let mut msg = message.iter();
+    while let Some(chunk) = msg.next() {
+        match chunk.clone().into() {
+            FieldType::Flags(_) => modify.push(FieldType::Flags(
+                msg.next()
+                    .ok_or(ParseError::MissingMessagePart)?
+                    .clone()
+                    .into(),
+            )),
+            FieldType::IpAddr(_) => modify.push(FieldType::IpAddr(IpAddress::from_message(
+                &mut msg,
+                todo!("is_ipv6"),
+            )?)),
+            FieldType::Port(_) => todo!(),
+            FieldType::Region(_) => todo!(),
+            FieldType::MaxCount(_) => todo!(),
+            FieldType::LName(_) => todo!(),
+            FieldType::LPass(_) => todo!(),
+            FieldType::Players(_) => todo!(),
+        }
+    }
+    Ok(modify)
 }
 
 fn parse_destroy_lobby(message: &[u8], ip_address: IpAddress) -> Result<(), ParseError> {

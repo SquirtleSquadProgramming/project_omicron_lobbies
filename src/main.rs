@@ -23,6 +23,7 @@ impl<T> ConvertError<T> for Result<T, ParseError> {
 }
 
 fn main() {
+    database::init();
     println!("Hello, world!");
     let test4 = IpAddress::IpV4([192, 168, 1, 100]);
     let test6 = IpAddress::IpV6([
