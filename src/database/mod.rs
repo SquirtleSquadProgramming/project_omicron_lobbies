@@ -2,15 +2,17 @@
 
 use crate::protocol::{Flags, IpAddress, Region};
 use bcrypt::{hash, DEFAULT_COST};
-pub use in_memory::{create, delete, init, modify};
+pub use in_memory::{create, dbg_database, delete, init, modify};
 
+#[repr(u8)]
+#[derive(Debug)]
 pub enum DatabaseError {
-    NotInitialised,
-    LobbyAlreadyExists,
-    LobbyDoesNotExist,
-    FailedToHashPassword,
-    FailedToVerifyPassword,
-    InvalidCredentials,
+    NotInitialised = 50,
+    LobbyAlreadyExists = 51,
+    LobbyDoesNotExist = 52,
+    FailedToHashPassword = 53,
+    FailedToVerifyPassword = 54,
+    InvalidCredentials = 55,
 }
 
 #[derive(Clone, Debug)]
