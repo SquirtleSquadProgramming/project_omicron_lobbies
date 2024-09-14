@@ -1,10 +1,5 @@
-use core::panic;
-
 use super::{IpAddress, ParseError, ParseOutput};
-use crate::{
-    database::{self, Lobby},
-    ConvertError, Errors,
-};
+use crate::database::Lobby;
 
 const VERSION: u8 = 0;
 const MAX_LOBBY_NAME_SIZE: usize = 32;
@@ -119,13 +114,17 @@ fn deserialise_string(
 }
 
 pub fn parse_message(message: &[u8], ip_address: IpAddress) -> Result<ParseOutput, ParseError> {
-    let m_type: u8 = message.get(0).ok_or(ParseError::EmptyMessage)? >> 4;
+    let m_type: u8 = *message.get(0).ok_or(ParseError::EmptyMessage)?;
 
-    let typ: Types = m_type.into();
+    let version: u8 = m_type & 0xF;
+    if version != VERSION {
+        return Err(ParseError::OutOfDate);
+    }
+    let typ: Types = (m_type >> 4).into();
     let mut msg = message[1..].iter();
 
     match typ {
-        Types::None => Err(ParseError::InvalidType(m_type)),
+        Types::None => Err(ParseError::InvalidType),
         Types::Create => {
             parse_create_lobby(&mut msg, ip_address).map(|lobby| ParseOutput::Create(lobby))
         }
