@@ -18,7 +18,7 @@ pub enum ParseOutput {
     Destroy((IpAddress, u16, Option<String>)),
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum IpAddress {
     IpV4([u8; 4]),
     IpV6([u16; 8]),
@@ -56,8 +56,8 @@ impl IpAddress {
 impl Display for IpAddress {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            IpAddress::IpV4(ip) => write!(f, "4/{}", ip.map(|n| n.to_string()).join(".")),
-            IpAddress::IpV6(ip) => write!(f, "6/{}", ip.map(|n| format!("{n:x}")).join(":")),
+            IpAddress::IpV4(ip) => write!(f, "{}/4", ip.map(|n| n.to_string()).join(".")),
+            IpAddress::IpV6(ip) => write!(f, "{}/6", ip.map(|n| format!("{n:x}")).join(":")),
         }
     }
 }
