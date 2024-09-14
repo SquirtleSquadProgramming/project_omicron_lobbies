@@ -5,6 +5,10 @@ use std::collections::HashMap;
 
 static mut DATABASE: Option<HashMap<String, Lobby>> = None;
 
+pub fn dbg_database() {
+    dbg!(unsafe { &DATABASE });
+}
+
 pub fn init() {
     let db = unsafe { &mut DATABASE };
     *db = Some(HashMap::new());
