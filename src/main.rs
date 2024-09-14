@@ -51,11 +51,12 @@ fn main() {
 }
 
 fn handle_connection(mut stream: TcpStream) {
-    let client_address: SocketAddr = if let Ok(address) = stream.peer_addr() {
-        address
-    } else {
-        etprintln!("Failed to get client address");
-        return;
+    let client_address: SocketAddr = match stream.peer_addr() {
+        Ok(addr) => addr,
+        Err(err) => {
+            etprintln!("Failed to get client address: {err:?}");
+            return;
+        }
     };
 
     etprintln!("Recieved client ip: {client_address}");
@@ -134,7 +135,7 @@ fn get_message(stream: &mut TcpStream, client_address: SocketAddr) -> Option<Vec
             break message;
         }
         if start.elapsed() > Duration::from_secs(RECV_TIME_OUT) {
-            etprintln!("Connection timed out.");
+            etprintln!("Connection timed out. Ending connection.");
             write_response(stream, client_address, 101);
             match stream.shutdown(std::net::Shutdown::Both) {
                 Err(err) => etprintln!("Failed to shutdown connection: {err:?}"),
@@ -150,5 +151,7 @@ fn get_message(stream: &mut TcpStream, client_address: SocketAddr) -> Option<Vec
 fn write_response(stream: &mut TcpStream, client_address: SocketAddr, response: u8) {
     if let Err(err) = stream.write(&[response]) {
         etprintln!("Failed to write to stream. Client: {client_address} / Code: {response}. Error: {err:?}");
+    } else {
+        etprintln!("Sent response {response} to client {client_address}.");
     }
 }
