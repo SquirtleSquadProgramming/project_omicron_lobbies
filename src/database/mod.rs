@@ -9,6 +9,8 @@ pub enum DatabaseError {
     LobbyAlreadyExists,
     LobbyDoesNotExist,
     FailedToHashPassword,
+    FailedToVerifyPassword,
+    InvalidCredentials,
 }
 
 #[derive(Clone)]
@@ -44,6 +46,10 @@ impl Lobby {
             password,
             current_players: 1,
         })
+    }
+
+    pub fn set_player_count(&mut self, count: u8) {
+        self.current_players = count;
     }
 }
 

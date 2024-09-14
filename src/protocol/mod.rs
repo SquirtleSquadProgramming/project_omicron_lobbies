@@ -12,6 +12,12 @@ pub enum ParseError {
     PasswordCannotHash,
 }
 
+enum ParseOutput {
+    Create(Option<Lobby>),
+    Modify(Option<Lobby>),
+    Destroy((IpAddress, u16, Option<String>)),
+}
+
 #[derive(PartialEq, Eq, Clone)]
 pub enum IpAddress {
     IpV4([u8; 4]),
@@ -59,4 +65,6 @@ impl Display for IpAddress {
 mod version0;
 use std::fmt::Display;
 
-pub use version0::{FieldType, Flags, Region};
+pub use version0::{Flags, Region};
+
+use crate::database::Lobby;

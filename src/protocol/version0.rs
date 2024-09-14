@@ -1,4 +1,4 @@
-use super::{IpAddress, ParseError};
+use super::{IpAddress, ParseError, ParseOutput};
 use crate::{
     database::{self, Lobby},
     ConvertError, Errors,
@@ -7,6 +7,8 @@ use crate::{
 const VERSION: u8 = 0;
 const MAX_LOBBY_NAME_SIZE: usize = 32;
 const MAX_LOBBY_PASS_SIZE: usize = 32;
+
+type IterU8<'a> = std::slice::Iter<'a, u8>;
 
 #[repr(u8)]
 pub enum Types {
@@ -30,33 +32,6 @@ impl From<u8> for Types {
 impl From<Types> for u8 {
     fn from(value: Types) -> Self {
         value as u8
-    }
-}
-
-#[repr(u8)]
-pub enum FieldType {
-    Flags(Flags) = 0,
-    IpAddr(IpAddress) = 1,
-    Port(u16) = 2,
-    Region(Region) = 3,
-    MaxCount(u8) = 4,
-    LName(String) = 5,
-    LPass(String) = 6,
-    Players(u8) = 7,
-}
-
-impl Into<FieldType> for u8 {
-    fn into(self) -> FieldType {
-        match self {
-            0 => FieldType::Flags(Flags::default()),
-            1 => FieldType::IpAddr(IpAddress::default()),
-            2 => FieldType::Port(0),
-            3 => FieldType::Region(Region::default()),
-            4 => FieldType::MaxCount(0),
-            5 => FieldType::LName(String::default()),
-            6 => FieldType::LPass(String::default()),
-            7 => FieldType::Players(0),
-        }
     }
 }
 
@@ -108,10 +83,14 @@ impl TryInto<Region> for u8 {
 }
 
 fn deserialise_string(
-    message: &mut std::slice::Iter<u8>,
+    message: &mut IterU8,
     max_length: usize,
-) -> Result<String, ParseError> {
-    let length = *message.next().ok_or(ParseError::MissingMessagePart)? as usize;
+) -> Result<Option<String>, ParseError> {
+    let length = match message.next() {
+        Some(length) => *length as usize,
+        None => return Ok(None),
+    };
+
     if length > max_length {
         return Err(ParseError::InvalidName);
     }
@@ -123,51 +102,61 @@ fn deserialise_string(
         lobby_name.push(ch);
     }
 
-    Ok(lobby_name)
+    Ok(Some(lobby_name))
 }
 
-pub fn parse_message(message: &[u8], ip_address: IpAddress) -> Result<(), Errors> {
-    let m_type: u8 = message.get(0).ok_or(ParseError::EmptyMessage).convert()? >> 4;
+pub fn parse_message(message: &[u8], ip_address: IpAddress) -> Result<ParseOutput, ParseError> {
+    let m_type: u8 = message.get(0).ok_or(ParseError::EmptyMessage)? >> 4;
 
     let typ: Types = m_type.into();
+    let mut msg = message[1..].iter();
 
     match typ {
-        Types::None => Err(ParseError::InvalidType(m_type)).convert(),
+        Types::None => Err(ParseError::InvalidType(m_type)),
         Types::Create => {
-            let lobby = parse_create_lobby(&message[1..], ip_address).convert()?;
-            database::create(lobby).convert()
+            parse_create_lobby(&mut msg, ip_address).map(|lobby| ParseOutput::Create(lobby))
         }
-        Types::Modify => parse_modify_lobby(&message[1..], ip_address)
-            .convert()
-            .map(|_| ()),
-        Types::Destroy => parse_destroy_lobby(&message[1..], ip_address).convert(),
+        Types::Modify => {
+            parse_modify_lobby(&mut msg, ip_address).map(|lobby| ParseOutput::Modify(lobby))
+        }
+        Types::Destroy => {
+            parse_destroy_lobby(&mut msg, ip_address).map(|del_info| ParseOutput::Destroy(del_info))
+        }
     }
 }
 
-fn parse_create_lobby(message: &[u8], ip_address: IpAddress) -> Result<Option<Lobby>, ParseError> {
-    let mut msg = message.iter();
-    let flags: Flags = msg
+fn parse_create_lobby(
+    message: &mut IterU8,
+    ip_address: IpAddress,
+) -> Result<Option<Lobby>, ParseError> {
+    let flags: Flags = message
         .next()
         .ok_or(ParseError::MissingMessagePart)?
         .to_owned()
         .into();
-    let ip = IpAddress::from_message(&mut msg, flags.is_ipv6)?;
+
+    let ip = IpAddress::from_message(message, flags.is_ipv6)?;
     if ip != ip_address {
         return Err(ParseError::MismatchedIP);
     }
+
     let port = {
-        let high = *msg.next().ok_or(ParseError::MissingMessagePart)? as u16;
-        let low = *msg.next().ok_or(ParseError::MissingMessagePart)? as u16;
+        let high = *message.next().ok_or(ParseError::MissingMessagePart)? as u16;
+        let low = *message.next().ok_or(ParseError::MissingMessagePart)? as u16;
         high << 8 + low
     };
-    let region: Region = msg
+
+    let region: Region = message
         .next()
         .ok_or(ParseError::MissingMessagePart)?
         .to_owned()
         .try_into()?;
-    let max_players: u8 = *msg.next().ok_or(ParseError::MissingMessagePart)?;
-    let lobby_name: String = deserialise_string(&mut msg, MAX_LOBBY_NAME_SIZE)?;
-    let lobby_password: String = deserialise_string(&mut msg, MAX_LOBBY_PASS_SIZE)?;
+
+    let max_players: u8 = *message.next().ok_or(ParseError::MissingMessagePart)?;
+    let lobby_name: String =
+        deserialise_string(message, MAX_LOBBY_NAME_SIZE)?.ok_or(ParseError::MissingMessagePart)?;
+    let lobby_password: String =
+        deserialise_string(message, MAX_LOBBY_PASS_SIZE)?.ok_or(ParseError::MissingMessagePart)?;
 
     Ok(Lobby::new(
         flags,
@@ -180,32 +169,36 @@ fn parse_create_lobby(message: &[u8], ip_address: IpAddress) -> Result<Option<Lo
     ))
 }
 
-fn parse_modify_lobby(message: &[u8], ip_address: IpAddress) -> Result<Vec<FieldType>, ParseError> {
-    let mut modify = Vec::new();
-    let mut msg = message.iter();
-    while let Some(chunk) = msg.next() {
-        match chunk.clone().into() {
-            FieldType::Flags(_) => modify.push(FieldType::Flags(
-                msg.next()
-                    .ok_or(ParseError::MissingMessagePart)?
-                    .clone()
-                    .into(),
-            )),
-            FieldType::IpAddr(_) => modify.push(FieldType::IpAddr(IpAddress::from_message(
-                &mut msg,
-                todo!("is_ipv6"),
-            )?)),
-            FieldType::Port(_) => todo!(),
-            FieldType::Region(_) => todo!(),
-            FieldType::MaxCount(_) => todo!(),
-            FieldType::LName(_) => todo!(),
-            FieldType::LPass(_) => todo!(),
-            FieldType::Players(_) => todo!(),
-        }
+fn parse_modify_lobby(
+    message: &mut IterU8,
+    ip_address: IpAddress,
+) -> Result<Option<Lobby>, ParseError> {
+    if let Some(mut lobby) = parse_create_lobby(message, ip_address)? {
+        lobby.set_player_count(*message.next().ok_or(ParseError::MissingMessagePart)?);
+        Ok(Some(lobby))
+    } else {
+        Ok(None)
     }
-    Ok(modify)
 }
 
-fn parse_destroy_lobby(message: &[u8], ip_address: IpAddress) -> Result<(), ParseError> {
-    todo!()
+fn parse_destroy_lobby(
+    message: &mut IterU8,
+    ip_address: IpAddress,
+) -> Result<(IpAddress, u16, Option<String>), ParseError> {
+    let is_ipv6 = message.next().ok_or(ParseError::MissingMessagePart)? == &1;
+    let ip = IpAddress::from_message(message, is_ipv6)?;
+
+    if ip != ip_address {
+        return Err(ParseError::MismatchedIP);
+    }
+
+    let port = {
+        let high = *message.next().ok_or(ParseError::MissingMessagePart)? as u16;
+        let low = *message.next().ok_or(ParseError::MissingMessagePart)? as u16;
+        high << 8 + low
+    };
+
+    let password = deserialise_string(message, MAX_LOBBY_PASS_SIZE)?;
+
+    Ok((ip, port, password))
 }
