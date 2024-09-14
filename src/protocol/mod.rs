@@ -12,13 +12,14 @@ pub enum ParseError {
     PasswordCannotHash,
 }
 
-enum ParseOutput {
+#[derive(Debug, PartialEq)]
+pub enum ParseOutput {
     Create(Option<Lobby>),
     Modify(Option<Lobby>),
     Destroy((IpAddress, u16, Option<String>)),
 }
 
-#[derive(PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum IpAddress {
     IpV4([u8; 4]),
     IpV6([u16; 8]),
@@ -37,7 +38,7 @@ impl IpAddress {
             for i in 0..8 {
                 let part1 = *msg.next().ok_or(ParseError::MissingMessagePart)? as u16;
                 let part2 = *msg.next().ok_or(ParseError::MissingMessagePart)? as u16;
-                parts[i] = part1 << 8 + part2;
+                parts[i] = (part1 << 8) + part2;
             }
 
             Ok(IpAddress::IpV6(parts))
@@ -62,9 +63,37 @@ impl Display for IpAddress {
     }
 }
 
+impl Into<IpAddress> for std::net::SocketAddr {
+    fn into(self) -> IpAddress {
+        fn to_u16(high: u8, low: u8) -> u16 {
+            ((high as u16) << 8) | (low as u16)
+        }
+
+        match self {
+            std::net::SocketAddr::V4(addr4) => IpAddress::IpV4(addr4.ip().octets()),
+            std::net::SocketAddr::V6(addr6) => {
+                let octets = addr6.ip().octets();
+                IpAddress::IpV6([
+                    to_u16(octets[0], octets[1]),
+                    to_u16(octets[2], octets[3]),
+                    to_u16(octets[4], octets[5]),
+                    to_u16(octets[6], octets[7]),
+                    to_u16(octets[8], octets[9]),
+                    to_u16(octets[10], octets[11]),
+                    to_u16(octets[12], octets[13]),
+                    to_u16(octets[14], octets[15]),
+                ])
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod parse_tests;
+
 mod version0;
 use std::fmt::Display;
 
-pub use version0::{Flags, Region};
+pub use version0::{parse_message, Flags, Region};
 
 use crate::database::Lobby;
