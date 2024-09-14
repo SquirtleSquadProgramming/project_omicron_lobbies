@@ -13,7 +13,7 @@ pub enum DatabaseError {
     InvalidCredentials,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Lobby {
     flags: Flags,
     region: Region,
@@ -23,6 +23,18 @@ pub struct Lobby {
     lobby_name: String,
     password: String, // bcrypted!
     current_players: u8,
+}
+
+impl PartialEq for Lobby {
+    fn eq(&self, other: &Self) -> bool {
+        self.flags == other.flags
+            && self.region == other.region
+            && self.host_ip == other.host_ip
+            && self.host_port == other.host_port
+            && self.max_players == other.max_players
+            && self.lobby_name == other.lobby_name
+            && self.current_players == other.current_players
+    }
 }
 
 impl Lobby {

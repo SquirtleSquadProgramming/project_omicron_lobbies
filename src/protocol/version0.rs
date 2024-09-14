@@ -1,3 +1,5 @@
+use core::panic;
+
 use super::{IpAddress, ParseError, ParseOutput};
 use crate::{
     database::{self, Lobby},
@@ -35,11 +37,22 @@ impl From<Types> for u8 {
     }
 }
 
-#[derive(Default, Clone)]
+#[derive(Default, PartialEq, Debug, Clone)]
 pub struct Flags {
     is_ipv6: bool,
     is_public: bool,
     has_password: bool,
+}
+
+#[cfg(test)]
+impl Flags {
+    pub fn new(is_ipv6: bool, is_public: bool, has_password: bool) -> Self {
+        Self {
+            is_ipv6,
+            is_public,
+            has_password,
+        }
+    }
 }
 
 impl Into<Flags> for u8 {
@@ -53,7 +66,7 @@ impl Into<Flags> for u8 {
 }
 
 #[repr(u8)]
-#[derive(Default, Clone)]
+#[derive(Default, Debug, PartialEq, Clone)]
 pub enum Region {
     #[default]
     Africa,
@@ -143,7 +156,7 @@ fn parse_create_lobby(
     let port = {
         let high = *message.next().ok_or(ParseError::MissingMessagePart)? as u16;
         let low = *message.next().ok_or(ParseError::MissingMessagePart)? as u16;
-        high << 8 + low
+        (high << 8) + low
     };
 
     let region: Region = message
@@ -195,7 +208,7 @@ fn parse_destroy_lobby(
     let port = {
         let high = *message.next().ok_or(ParseError::MissingMessagePart)? as u16;
         let low = *message.next().ok_or(ParseError::MissingMessagePart)? as u16;
-        high << 8 + low
+        (high << 8) + low
     };
 
     let password = deserialise_string(message, MAX_LOBBY_PASS_SIZE)?;
