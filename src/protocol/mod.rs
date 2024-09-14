@@ -1,15 +1,14 @@
-#![allow(dead_code)]
-#![allow(unused_variables)]
-
 #[derive(Debug)]
+#[repr(u8)]
 pub enum ParseError {
-    EmptyMessage,
-    InvalidType(u8),
-    MissingMessagePart,
-    InvalidRegion,
-    InvalidName,
-    MismatchedIP,
-    PasswordCannotHash,
+    EmptyMessage = 40,
+    InvalidType = 41,
+    MissingMessagePart = 42,
+    InvalidRegion = 43,
+    InvalidName = 44,
+    MismatchedIP = 45,
+    OutOfDate = 46,
+    // 50+ is reserved currently
 }
 
 #[derive(Debug, PartialEq)]
