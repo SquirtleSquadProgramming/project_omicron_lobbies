@@ -43,12 +43,6 @@ fn main() {
     }
 }
 
-fn write_response(stream: &mut TcpStream, client_address: SocketAddr, response: u8) {
-    if stream.write(&[response]).is_err() {
-        etprintln!("Failed to write to stream. Client: {client_address} / Code: {response}");
-    }
-}
-
 fn handle_connection(mut stream: TcpStream) {
     let client_address: SocketAddr = if let Ok(address) = stream.peer_addr() {
         address
@@ -59,6 +53,48 @@ fn handle_connection(mut stream: TcpStream) {
 
     etprintln!("Recieved client ip: {client_address}");
 
+    let message = if let Some(msg) = get_message(&mut stream, client_address) {
+        msg
+    } else {
+        return;
+    };
+
+    etprintln!("Recieved message: {message:?}");
+
+    let parse_result = protocol::parse_message(message.as_slice(), client_address.into());
+    if parse_result.is_err() {
+        match parse_result {
+            Err(parse_error) => {
+                etprintln!("Bad message: {parse_error:?}");
+                return write_response(&mut stream, client_address, parse_error as u8);
+            }
+            Ok(_) => (),
+        }
+    }
+
+    let parse_output = parse_result.unwrap();
+
+    let database_result = match parse_output {
+        protocol::ParseOutput::Create(lobby) => database::create(lobby),
+        protocol::ParseOutput::Modify(lobby) => database::modify(lobby),
+        protocol::ParseOutput::Destroy((host_ip, port, password)) => {
+            database::delete(host_ip, port, password)
+        }
+    };
+
+    let response: u8 = match database_result {
+        Err(err) => {
+            etprintln!("Bad message: {err:?}");
+            err as u8
+        }
+        Ok(()) => 10,
+    };
+
+    write_response(&mut stream, client_address, response);
+    database::dbg_database();
+}
+
+fn get_message(stream: &mut TcpStream, client_address: SocketAddr) -> Option<Vec<u8>> {
     let mut thread_stream = stream.try_clone().expect("Failed to duplicate stream.");
     let recv_thread = thread::spawn(move || {
         let mut length: [u8; 1] = [0];
@@ -80,52 +116,24 @@ fn handle_connection(mut stream: TcpStream) {
     });
 
     let start = Instant::now();
-    let message = loop {
+    loop {
         if recv_thread.is_finished() {
             let message = recv_thread.join().expect("Failed to join thread!");
-
-            if message.is_none() {
-                return;
-            }
-
-            break message.unwrap();
+            break message;
         }
         if start.elapsed() > Duration::from_secs(RECV_TIME_OUT) {
             etprintln!("Connection timed out.");
-            write_response(&mut stream, client_address, 101);
+            write_response(stream, client_address, 101);
             stream.shutdown(std::net::Shutdown::Both).unwrap();
-            return;
+            return None;
         }
-    };
 
-    etprintln!("Recieved message: {message:?}");
-
-    let parse_result = protocol::parse_message(message.as_slice(), client_address.into());
-    if parse_result.is_err() {
-        match parse_result {
-            Err(parse_error) => {
-                etprintln!("Bad message: {parse_error:?}");
-                return write_response(&mut stream, client_address, parse_error as u8);
-            }
-            Ok(_) => (),
-        }
+        std::thread::sleep(Duration::from_millis(100));
     }
-    let parse_output = parse_result.unwrap();
-    let database_result = match parse_output {
-        protocol::ParseOutput::Create(lobby) => database::create(lobby),
-        protocol::ParseOutput::Modify(lobby) => database::modify(lobby),
-        protocol::ParseOutput::Destroy((host_ip, port, password)) => {
-            database::delete(host_ip, port, password)
-        }
-    };
-    let response: u8 = match database_result {
-        Err(err) => {
-            etprintln!("Bad message: {err:?}");
-            err as u8
-        }
-        Ok(()) => 10,
-    };
+}
 
-    write_response(&mut stream, client_address, response);
-    database::dbg_database();
+fn write_response(stream: &mut TcpStream, client_address: SocketAddr, response: u8) {
+    if stream.write(&[response]).is_err() {
+        etprintln!("Failed to write to stream. Client: {client_address} / Code: {response}");
+    }
 }
