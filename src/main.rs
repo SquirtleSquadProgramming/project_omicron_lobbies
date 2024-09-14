@@ -25,6 +25,8 @@ macro_rules! etprintln {
         etprintln!(as "[%Y/%m/%d-%H:%M:%S]"; $( $arg )*)
     };
 }
+
+const RECV_TIME_OUT: u64 = 5; // in seconds
 const IP_ADDRESS: &'static str = "192.168.1.100:5475";
 
 fn main() {
@@ -88,7 +90,7 @@ fn handle_connection(mut stream: TcpStream) {
 
             break message.unwrap();
         }
-        if start.elapsed() > Duration::from_secs(5) {
+        if start.elapsed() > Duration::from_secs(RECV_TIME_OUT) {
             etprintln!("Connection timed out.");
             write_response(&mut stream, client_address, 101);
             stream.shutdown(std::net::Shutdown::Both).unwrap();
