@@ -55,3 +55,23 @@ The password field is only needed if there is password protection on the lobby.
 | Type | Version | IpV  | IpV(4/6) Address     | Port  | Password?     |
 | ---- | ------- | ---- | -------------------- | ----- | ------------- |
 | `u4` | `u4`    | `u8` | `[u8; 4] / [u16; 8]` | `u16` | `u8`, n bytes |
+
+## Server Response Codes:
+
+| Code | Meaning                   |
+| ---- | ------------------------- |
+| 10   | Success                   |
+| 40   | Empty Message             |
+| 41   | Invalid Type              |
+| 42   | Missing Message Part      |
+| 43   | Invalid Region            |
+| 44   | Invalid Name              |
+| 45   | Mismatched Ip             |
+| 46   | Out of Date               |
+| 50   | Not Initialised           |
+| 51   | Lobby Already Exists      |
+| 52   | Lobby Does Not Exist      |
+| 53   | Failed to Hash Password   |
+| 54   | Failed to Verify Password |
+| 55   | Invalid Credentials       |
+| 101  | Connection Timed Out (5s) |
