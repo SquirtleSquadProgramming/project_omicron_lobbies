@@ -153,9 +153,11 @@ impl Region {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum GetRequest {
-    Standard((Filter, Vec<Region>, u8)),
-    Search((String, Vec<Region>, u8)),
+pub struct GetRequest {
+    pub filter: Filter,
+    pub regions: Vec<Region>,
+    pub page_num: u8,
+    pub search: Option<String>,
 }
 
 #[repr(u8)]
@@ -312,30 +314,23 @@ fn parse_destroy_lobby(
 }
 
 fn parse_get(message: &mut IterU8) -> Result<GetRequest, ParseError> {
-    let filter: Filter = message
-        .next()
-        .ok_or(ParseError::MissingMessagePart)?
-        .to_owned()
-        .try_into()?;
-
-    let request = match filter {
-        Filter::Search => GetRequest::Search((
-            deserialise_string(message, MAX_LOBBY_NAME_SIZE)?
-                .ok_or(ParseError::MissingMessagePart)?,
-            vec![],
-            0,
-        )),
-        filter => GetRequest::Standard((filter, vec![], 0)),
-    };
+    let search_and_filter = *message.next().ok_or(ParseError::MissingMessagePart)?;
+    let search = search_and_filter & 0x80 == 0x80;
+    let filter: Filter = (search_and_filter & 0x7F).try_into()?;
 
     let regions = Region::get_regions(*message.next().ok_or(ParseError::MissingMessagePart)?);
-    let page_number = *message.next().ok_or(ParseError::MissingMessagePart)?;
-    let request = match request {
-        GetRequest::Standard((filter, _, _)) => {
-            GetRequest::Standard((filter, regions, page_number))
-        }
-        GetRequest::Search((search, _, _)) => GetRequest::Search((search, regions, page_number)),
+    let page_num = *message.next().ok_or(ParseError::MissingMessagePart)?;
+
+    let search = if search {
+        deserialise_string(message, MAX_LOBBY_NAME_SIZE)?
+    } else {
+        None
     };
 
-    Ok(request)
+    Ok(GetRequest {
+        filter,
+        regions,
+        page_num,
+        search,
+    })
 }

@@ -90,65 +90,56 @@ pub fn delete(
 
 pub fn get(request: GetRequest) -> Result<Page, DatabaseError> {
     if let Some(db) = unsafe { &mut DATABASE } {
-        let response = match request {
-            GetRequest::Standard((filter, regions, page_number)) => {
-                let mut lobbies = db
-                    .iter()
-                    .filter(|&(_, lobby)| regions.contains(&lobby.region))
-                    .map(|(_, lobby)| lobby)
-                    .collect::<Vec<_>>();
-
-                match filter {
-                    Filter::NameAscending => lobbies.sort_by(|&left, &right| {
-                        left.lobby_name
-                            .to_lowercase()
-                            .cmp(&right.lobby_name.to_lowercase())
-                    }),
-                    Filter::NameDescending => lobbies.sort_by(|&left, &right| {
-                        right
-                            .lobby_name
-                            .to_lowercase()
-                            .cmp(&left.lobby_name.to_lowercase())
-                    }),
-                    Filter::PlayerCountAscending => lobbies
-                        .sort_by(|&left, &right| left.current_players.cmp(&right.current_players)),
-                    Filter::PlayerCountDescending => lobbies
-                        .sort_by(|&left, &right| right.current_players.cmp(&left.current_players)),
-                    Filter::Search => Err(DatabaseError::InvalidFilter)?,
-                }
-
-                let num_lobbies = lobbies.len() as u8;
-                let lobbies: Vec<_> = lobbies
-                    .iter()
-                    .skip((page_number * PAGE_SIZE) as usize)
-                    .take(PAGE_SIZE as usize)
-                    .map(|&lobby| lobby.clone())
-                    .collect();
-
-                Page::new(lobbies, page_number, num_lobbies / PAGE_SIZE)
-            }
-            GetRequest::Search((name, regions, page_number)) => {
-                let lobbies = db
-                    .iter()
-                    .filter(|&(_, lobby)| {
-                        lobby
-                            .lobby_name
-                            .to_lowercase()
-                            .contains(&name.to_lowercase())
-                    })
-                    .filter(|&(_, lobby)| regions.contains(&lobby.region));
-
-                let num_lobbies = lobbies.clone().count() as u8;
-
-                let lobbies: Vec<_> = lobbies
-                    .skip((page_number * PAGE_SIZE) as usize)
-                    .take(PAGE_SIZE as usize)
-                    .map(|(_, lobby)| lobby.clone())
-                    .collect();
-
-                Page::new(lobbies, page_number, num_lobbies / PAGE_SIZE)
-            }
+        // Filter by regions and search?
+        let mut lobbies = if let Some(search) = request.search {
+            db.iter()
+                .filter(|&(_, lobby)| request.regions.contains(&lobby.region))
+                .filter(|&(_, lobby)| {
+                    lobby
+                        .lobby_name
+                        .to_lowercase()
+                        .contains(&search.to_lowercase())
+                })
+                .map(|(_, lobby)| lobby)
+                .collect::<Vec<_>>()
+        } else {
+            db.iter()
+                .filter(|&(_, lobby)| request.regions.contains(&lobby.region))
+                .map(|(_, lobby)| lobby)
+                .collect::<Vec<_>>()
         };
+
+        // Sort by filter
+        match request.filter {
+            Filter::NameAscending => lobbies.sort_by(|&left, &right| {
+                left.lobby_name
+                    .to_lowercase()
+                    .cmp(&right.lobby_name.to_lowercase())
+            }),
+            Filter::NameDescending => lobbies.sort_by(|&left, &right| {
+                right
+                    .lobby_name
+                    .to_lowercase()
+                    .cmp(&left.lobby_name.to_lowercase())
+            }),
+            Filter::PlayerCountAscending => {
+                lobbies.sort_by(|&left, &right| left.current_players.cmp(&right.current_players))
+            }
+            Filter::PlayerCountDescending => {
+                lobbies.sort_by(|&left, &right| right.current_players.cmp(&left.current_players))
+            }
+            Filter::Search => Err(DatabaseError::InvalidFilter)?,
+        }
+
+        let num_lobbies = lobbies.len() as u8;
+        let lobbies: Vec<_> = lobbies
+            .iter()
+            .skip((request.page_num * PAGE_SIZE) as usize)
+            .take(PAGE_SIZE as usize)
+            .map(|&lobby| lobby.clone())
+            .collect();
+
+        let response = Page::new(lobbies, request.page_num, num_lobbies / PAGE_SIZE);
 
         Ok(response)
     } else {
