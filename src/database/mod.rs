@@ -15,6 +15,22 @@ pub enum DatabaseError {
     InvalidCredentials = 55,
 }
 
+pub struct Page {
+    lobbies: Vec<Box<Lobby>>,
+    page_number: usize,
+    total_pages: usize,
+}
+
+impl Page {
+    pub fn new(lobbies: Vec<Box<Lobby>>, page_number: usize, total_pages: usize) -> Self {
+        Page {
+            lobbies,
+            page_number,
+            total_pages,
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Lobby {
     flags: Flags,
