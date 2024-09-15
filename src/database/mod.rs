@@ -1,6 +1,9 @@
 #![allow(dead_code)]
 
-use crate::protocol::{Flags, IpAddress, Region};
+use crate::{
+    protocol::{Flags, IpAddress, Region},
+    Serialise,
+};
 use bcrypt::{hash, DEFAULT_COST};
 pub use in_memory::{create, dbg_database, delete, init, modify};
 
@@ -16,21 +19,35 @@ pub enum DatabaseError {
     InvalidFilter = 56,
 }
 
-pub const PAGE_SIZE: usize = 15;
+pub const PAGE_SIZE: u8 = 15;
 
 pub struct Page {
     lobbies: Vec<Lobby>,
-    page_number: usize,
-    total_pages: usize,
+    page_number: u8,
+    total_pages: u8,
 }
 
 impl Page {
-    pub fn new(lobbies: Vec<Lobby>, page_number: usize, total_pages: usize) -> Self {
+    pub fn new(lobbies: Vec<Lobby>, page_number: u8, total_pages: u8) -> Self {
         Page {
             lobbies,
             page_number,
             total_pages,
         }
+    }
+}
+
+impl Serialise for Page {
+    fn serialise(self) -> Vec<u8> {
+        let mut output = self
+            .lobbies
+            .iter()
+            .map(|l| l)
+            .collect::<Vec<_>>()
+            .serialise();
+        output.push(self.page_number);
+        output.push(self.total_pages);
+        todo!()
     }
 }
 
@@ -44,6 +61,20 @@ pub struct Lobby {
     pub lobby_name: String,
     pub password: String, // bcrypted!
     pub current_players: u8,
+}
+
+impl Serialise for &Lobby {
+    fn serialise(self) -> Vec<u8> {
+        let mut output = self.flags.clone().serialise();
+        output.extend(self.region.clone().serialise());
+        output.extend(self.host_ip.serialise());
+        output.extend(self.host_port.serialise());
+        output.push(self.max_players);
+        output.extend(self.lobby_name.clone().serialise());
+        output.push(self.current_players);
+        output.insert(0, output.len() as u8);
+        output
+    }
 }
 
 impl PartialEq for Lobby {

@@ -89,10 +89,21 @@ impl Into<IpAddress> for std::net::SocketAddr {
     }
 }
 
+impl Serialise for IpAddress {
+    fn serialise(self) -> Vec<u8> {
+        let mut output = Vec::new();
+        match self {
+            IpAddress::IpV4(octets) => output.extend(octets),
+            IpAddress::IpV6(hexets) => hexets.iter().for_each(|hex| output.extend(hex.serialise())),
+        }
+        output
+    }
+}
+
 #[cfg(test)]
 mod parse_tests;
 mod version0;
 
-use crate::database::Lobby;
+use crate::{database::Lobby, Serialise};
 use std::fmt::Display;
 pub use version0::{parse_message, Filter, Flags, GetRequest, Region};

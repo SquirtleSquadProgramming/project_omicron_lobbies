@@ -1,5 +1,5 @@
 use super::{IpAddress, ParseError, ParseOutput};
-use crate::database::Lobby;
+use crate::{database::Lobby, Serialise};
 
 const VERSION: u8 = 0;
 const MAX_LOBBY_NAME_SIZE: usize = 32;
@@ -40,6 +40,22 @@ pub struct Flags {
     has_password: bool,
 }
 
+impl Serialise for Flags {
+    fn serialise(self) -> Vec<u8> {
+        let mut output = 0;
+        if self.is_ipv6 {
+            output += 1;
+        }
+        if self.is_public {
+            output += 2;
+        }
+        if self.has_password {
+            output += 4;
+        }
+        vec![output]
+    }
+}
+
 #[cfg(test)]
 impl Flags {
     pub fn new(is_ipv6: bool, is_public: bool, has_password: bool) -> Self {
@@ -71,6 +87,12 @@ pub enum Region {
     NorthAmerica = 8,
     SouthAmerica = 16,
     Oceania = 32,
+}
+
+impl Serialise for Region {
+    fn serialise(self) -> Vec<u8> {
+        vec![self as u8]
+    }
 }
 
 impl TryInto<Region> for u8 {
@@ -131,8 +153,8 @@ impl Region {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum GetRequest {
-    Standard((Filter, Vec<Region>, usize)),
-    Search((String, usize)),
+    Standard((Filter, Vec<Region>, u8)),
+    Search((String, u8)),
 }
 
 #[repr(u8)]
@@ -299,13 +321,13 @@ fn parse_get(message: &mut IterU8) -> Result<GetRequest, ParseError> {
         Filter::Search => GetRequest::Search((
             deserialise_string(message, MAX_LOBBY_NAME_SIZE)?
                 .ok_or(ParseError::MissingMessagePart)?,
-            *message.next().ok_or(ParseError::MissingMessagePart)? as usize,
+            *message.next().ok_or(ParseError::MissingMessagePart)?,
         )),
         filter => GetRequest::Standard((filter, vec![], 0)),
     };
 
     let regions = Region::get_regions(*message.next().ok_or(ParseError::MissingMessagePart)?);
-    let page_number = *message.next().ok_or(ParseError::MissingMessagePart)? as usize;
+    let page_number = *message.next().ok_or(ParseError::MissingMessagePart)?;
 
     let request = if let GetRequest::Standard((filter, _, _)) = request {
         GetRequest::Standard((filter, regions, page_number))

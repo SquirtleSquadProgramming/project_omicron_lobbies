@@ -112,11 +112,11 @@ pub fn get(request: GetRequest) -> Result<Page, DatabaseError> {
                     Filter::Search => Err(DatabaseError::InvalidFilter)?,
                 }
 
-                let num_lobbies = lobbies.len();
+                let num_lobbies = lobbies.len() as u8;
                 let lobbies: Vec<_> = lobbies
                     .iter()
-                    .skip(page_number * PAGE_SIZE)
-                    .take(PAGE_SIZE)
+                    .skip((page_number * PAGE_SIZE) as usize)
+                    .take(PAGE_SIZE as usize)
                     .map(|&lobby| lobby.clone())
                     .collect();
 
@@ -127,11 +127,11 @@ pub fn get(request: GetRequest) -> Result<Page, DatabaseError> {
                     .iter()
                     .filter(|&(_, lobby)| lobby.lobby_name.contains(&name));
 
-                let num_lobbies = lobbies.clone().count();
+                let num_lobbies = lobbies.clone().count() as u8;
 
                 let lobbies: Vec<_> = lobbies
-                    .skip(page_number * PAGE_SIZE)
-                    .take(PAGE_SIZE)
+                    .skip((page_number * PAGE_SIZE) as usize)
+                    .take(PAGE_SIZE as usize)
                     .map(|(_, lobby)| lobby.clone())
                     .collect();
 

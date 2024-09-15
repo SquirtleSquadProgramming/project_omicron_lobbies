@@ -26,6 +26,34 @@ macro_rules! etprintln {
     };
 }
 
+pub trait Serialise {
+    fn serialise(self) -> Vec<u8>;
+}
+
+impl Serialise for String {
+    fn serialise(self) -> Vec<u8> {
+        let mut output = Vec::new();
+        output.push(self.len() as u8);
+        output.extend(self.bytes().collect::<Vec<u8>>());
+        output
+    }
+}
+
+impl Serialise for u16 {
+    fn serialise(self) -> Vec<u8> {
+        vec![(self >> 8) as u8, (self & 0xFF) as u8]
+    }
+}
+
+impl<T: Serialise + Copy> Serialise for Vec<T> {
+    fn serialise(self) -> Vec<u8> {
+        let mut output = Vec::new();
+        self.iter().for_each(|el| output.extend(el.serialise()));
+        output.insert(0, output.len() as u8);
+        output
+    }
+}
+
 const RECV_TIME_OUT: u64 = 5; // in seconds
 const IP_ADDRESS: &'static str = "192.168.1.100:5475";
 
