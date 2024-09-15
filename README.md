@@ -59,15 +59,9 @@ The password field is only needed if there is password protection on the lobby.
 ## Get:
 Returns a paginated lobby list sorted by the given field.
 
-If Filter ≠ Search:
-| Type | Version | Filter | Regions | Page Number |
-| ---- | ------- | ------ | ------- | ----------- |
-| `u4` | `u4`    | `u8`   | `u8`    | `u8`        |
-
-If Filter = Search:
-| Type | Version | Filter | Search Name   | Regions | Page Number |
-| ---- | ------- | ------ | ------------- | ------- | ----------- |
-| `u4` | `u4`    | `255`  | `u8`, n bytes | `u8`    | `u8`        |
+| Type | Version | Search | Filter | Regions | Page Number | Search Name?  |
+| ---- | ------- | ------ | ------ | ------- | ----------- | ------------- |
+| `u4` | `u4`    | `u1`   | `u7`   | `u8`    | `u8`        | `u8`, n bytes |
 
 | ID    | Filter                  |
 | ----- | ----------------------- |
@@ -75,7 +69,6 @@ If Filter = Search:
 | `1`   | Name Descending         |
 | `2`   | Player Count Ascending  |
 | `3`   | Player Count Descending |
-| `255` | Search                  |
 
 ## Server Response Codes:
 
