@@ -127,13 +127,16 @@ pub fn get(request: GetRequest) -> Result<Page, DatabaseError> {
 
                 Page::new(lobbies, page_number, num_lobbies / PAGE_SIZE)
             }
-            GetRequest::Search((name, page_number)) => {
-                let lobbies = db.iter().filter(|&(_, lobby)| {
-                    lobby
-                        .lobby_name
-                        .to_lowercase()
-                        .contains(&name.to_lowercase())
-                });
+            GetRequest::Search((name, regions, page_number)) => {
+                let lobbies = db
+                    .iter()
+                    .filter(|&(_, lobby)| {
+                        lobby
+                            .lobby_name
+                            .to_lowercase()
+                            .contains(&name.to_lowercase())
+                    })
+                    .filter(|&(_, lobby)| regions.contains(&lobby.region));
 
                 let num_lobbies = lobbies.clone().count() as u8;
 

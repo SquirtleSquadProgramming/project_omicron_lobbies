@@ -155,7 +155,7 @@ impl Region {
 #[derive(Debug, PartialEq, Eq)]
 pub enum GetRequest {
     Standard((Filter, Vec<Region>, u8)),
-    Search((String, u8)),
+    Search((String, Vec<Region>, u8)),
 }
 
 #[repr(u8)]
@@ -322,17 +322,19 @@ fn parse_get(message: &mut IterU8) -> Result<GetRequest, ParseError> {
         Filter::Search => GetRequest::Search((
             deserialise_string(message, MAX_LOBBY_NAME_SIZE)?
                 .ok_or(ParseError::MissingMessagePart)?,
-            *message.next().ok_or(ParseError::MissingMessagePart)?,
+            vec![],
+            0,
         )),
         filter => GetRequest::Standard((filter, vec![], 0)),
     };
 
-    let request = if let GetRequest::Standard((filter, _, _)) = request {
-        let regions = Region::get_regions(*message.next().ok_or(ParseError::MissingMessagePart)?);
-        let page_number = *message.next().ok_or(ParseError::MissingMessagePart)?;
-        GetRequest::Standard((filter, regions, page_number))
-    } else {
-        request
+    let regions = Region::get_regions(*message.next().ok_or(ParseError::MissingMessagePart)?);
+    let page_number = *message.next().ok_or(ParseError::MissingMessagePart)?;
+    let request = match request {
+        GetRequest::Standard((filter, _, _)) => {
+            GetRequest::Standard((filter, regions, page_number))
+        }
+        GetRequest::Search((search, _, _)) => GetRequest::Search((search, regions, page_number)),
     };
 
     Ok(request)
