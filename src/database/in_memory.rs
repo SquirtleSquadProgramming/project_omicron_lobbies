@@ -99,12 +99,17 @@ pub fn get(request: GetRequest) -> Result<Page, DatabaseError> {
                     .collect::<Vec<_>>();
 
                 match filter {
-                    Filter::NameAscending => {
-                        lobbies.sort_by(|&left, &right| left.lobby_name.cmp(&right.lobby_name))
-                    }
-                    Filter::NameDescending => {
-                        lobbies.sort_by(|&left, &right| right.lobby_name.cmp(&left.lobby_name))
-                    }
+                    Filter::NameAscending => lobbies.sort_by(|&left, &right| {
+                        left.lobby_name
+                            .to_lowercase()
+                            .cmp(&right.lobby_name.to_lowercase())
+                    }),
+                    Filter::NameDescending => lobbies.sort_by(|&left, &right| {
+                        right
+                            .lobby_name
+                            .to_lowercase()
+                            .cmp(&left.lobby_name.to_lowercase())
+                    }),
                     Filter::PlayerCountAscending => lobbies
                         .sort_by(|&left, &right| left.current_players.cmp(&right.current_players)),
                     Filter::PlayerCountDescending => lobbies
@@ -123,9 +128,12 @@ pub fn get(request: GetRequest) -> Result<Page, DatabaseError> {
                 Page::new(lobbies, page_number, num_lobbies / PAGE_SIZE)
             }
             GetRequest::Search((name, page_number)) => {
-                let lobbies = db
-                    .iter()
-                    .filter(|&(_, lobby)| lobby.lobby_name.contains(&name));
+                let lobbies = db.iter().filter(|&(_, lobby)| {
+                    lobby
+                        .lobby_name
+                        .to_lowercase()
+                        .contains(&name.to_lowercase())
+                });
 
                 let num_lobbies = lobbies.clone().count() as u8;
 

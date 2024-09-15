@@ -22,6 +22,7 @@ impl From<u8> for Types {
             0x1 => Self::Create,
             0x2 => Self::Modify,
             0x4 => Self::Destroy,
+            0x8 => Self::Get,
             _ => Self::None,
         }
     }
@@ -326,10 +327,9 @@ fn parse_get(message: &mut IterU8) -> Result<GetRequest, ParseError> {
         filter => GetRequest::Standard((filter, vec![], 0)),
     };
 
-    let regions = Region::get_regions(*message.next().ok_or(ParseError::MissingMessagePart)?);
-    let page_number = *message.next().ok_or(ParseError::MissingMessagePart)?;
-
     let request = if let GetRequest::Standard((filter, _, _)) = request {
+        let regions = Region::get_regions(*message.next().ok_or(ParseError::MissingMessagePart)?);
+        let page_number = *message.next().ok_or(ParseError::MissingMessagePart)?;
         GetRequest::Standard((filter, regions, page_number))
     } else {
         request

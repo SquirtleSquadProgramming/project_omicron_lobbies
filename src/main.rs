@@ -47,9 +47,11 @@ impl Serialise for u16 {
 
 impl<T: Serialise + Copy> Serialise for Vec<T> {
     fn serialise(self) -> Vec<u8> {
+        let mut temp = Vec::new();
+        self.iter().for_each(|el| temp.extend(el.serialise()));
         let mut output = Vec::new();
-        self.iter().for_each(|el| output.extend(el.serialise()));
-        output.insert(0, output.len() as u8);
+        output.extend((temp.len() as u16).serialise());
+        output.extend(temp);
         output
     }
 }
@@ -106,13 +108,24 @@ fn handle_connection(mut stream: TcpStream) {
         Ok(po) => po,
     };
 
+    let mut response_body: Vec<u8> = Vec::new();
+
     let database_result = match parse_output {
         protocol::ParseOutput::Create(lobby) => database::create(lobby),
         protocol::ParseOutput::Modify(lobby) => database::modify(lobby),
         protocol::ParseOutput::Destroy((host_ip, port, password)) => {
             database::delete(host_ip, port, password)
         }
-        protocol::ParseOutput::Get(_) => todo!(),
+        protocol::ParseOutput::Get(get_request) => {
+            let page_result = database::get(get_request);
+            match page_result {
+                Ok(page) => {
+                    response_body = page.serialise();
+                    Ok(())
+                }
+                Err(err) => Err(err),
+            }
+        }
     };
 
     let response: u8 = match database_result {
@@ -125,6 +138,17 @@ fn handle_connection(mut stream: TcpStream) {
 
     write_response(&mut stream, client_address, response);
     database::dbg_database();
+
+    if !response_body.is_empty() {
+        let length = response_body.len() as u16;
+        response_body.insert(0, (length & 0xFF) as u8);
+        response_body.insert(0, (length >> 8) as u8);
+        if let Err(err) = stream.write_all(&response_body) {
+            etprintln!("Failed to write response_body: {err:?}");
+        } else {
+            etprintln!("Sent page to client.");
+        }
+    }
 }
 
 fn get_message(stream: &mut TcpStream, client_address: SocketAddr) -> Option<Vec<u8>> {

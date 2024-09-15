@@ -5,7 +5,7 @@ use crate::{
     Serialise,
 };
 use bcrypt::{hash, DEFAULT_COST};
-pub use in_memory::{create, dbg_database, delete, init, modify};
+pub use in_memory::{create, dbg_database, delete, get, init, modify};
 
 #[repr(u8)]
 #[derive(Debug)]
@@ -47,7 +47,7 @@ impl Serialise for Page {
             .serialise();
         output.push(self.page_number);
         output.push(self.total_pages);
-        todo!()
+        output
     }
 }
 
