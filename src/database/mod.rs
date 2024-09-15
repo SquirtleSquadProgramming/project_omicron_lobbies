@@ -17,6 +17,7 @@ pub enum DatabaseError {
     FailedToVerifyPassword = 54,
     InvalidCredentials = 55,
     InvalidFilter = 56,
+    BadMessage = 57,
 }
 
 pub const PAGE_SIZE: u8 = 15;

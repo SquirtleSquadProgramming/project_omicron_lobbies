@@ -134,7 +134,11 @@ pub fn get(request: GetRequest) -> Result<Page, DatabaseError> {
         let num_lobbies = lobbies.len() as u8;
         let lobbies: Vec<_> = lobbies
             .iter()
-            .skip((request.page_num * PAGE_SIZE) as usize)
+            .skip(
+                (request.page_num as usize)
+                    .checked_mul(PAGE_SIZE as usize)
+                    .ok_or(DatabaseError::BadMessage)?,
+            )
             .take(PAGE_SIZE as usize)
             .map(|&lobby| lobby.clone())
             .collect();
