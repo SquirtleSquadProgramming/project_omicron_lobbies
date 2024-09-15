@@ -289,5 +289,27 @@ fn parse_destroy_lobby(
 }
 
 fn parse_get(message: &mut IterU8, ip_address: IpAddress) -> Result<GetRequest, ParseError> {
-    todo!()
+    let filter: Filter = message
+        .next()
+        .ok_or(ParseError::MissingMessagePart)?
+        .to_owned()
+        .try_into()?;
+
+    let request = match filter {
+        Filter::Search => GetRequest::Search(
+            deserialise_string(message, MAX_LOBBY_NAME_SIZE)?
+                .ok_or(ParseError::MissingMessagePart)?,
+        ),
+        filter => GetRequest::Standard((filter, vec![])),
+    };
+
+    let regions = Region::get_regions(*message.next().ok_or(ParseError::MissingMessagePart)?);
+
+    let request = if let GetRequest::Standard((filter, _)) = request {
+        GetRequest::Standard((filter, regions))
+    } else {
+        request
+    };
+
+    Ok(request)
 }
