@@ -64,12 +64,12 @@ impl Into<Flags> for u8 {
 #[derive(Default, Debug, PartialEq, Clone)]
 pub enum Region {
     #[default]
-    Africa,
-    Asia,
-    Europe,
-    NorthAmerica,
-    SouthAmerica,
-    Oceania,
+    Africa = 1,
+    Asia = 2,
+    Europe = 4,
+    NorthAmerica = 8,
+    SouthAmerica = 16,
+    Oceania = 32,
 }
 
 impl TryInto<Region> for u8 {
@@ -77,16 +77,43 @@ impl TryInto<Region> for u8 {
 
     fn try_into(self) -> Result<Region, Self::Error> {
         let region = match self {
-            0 => Region::Africa,
-            1 => Region::Asia,
-            2 => Region::Europe,
-            3 => Region::NorthAmerica,
-            4 => Region::SouthAmerica,
-            5 => Region::Oceania,
+            1 => Region::Africa,
+            2 => Region::Asia,
+            4 => Region::Europe,
+            8 => Region::NorthAmerica,
+            16 => Region::SouthAmerica,
+            32 => Region::Oceania,
             _ => Err(ParseError::InvalidRegion)?,
         };
 
         Ok(region)
+    }
+}
+
+impl Region {
+    pub fn get_regions(value: u8) -> Vec<Region> {
+        let mut output = Vec::new();
+
+        if value & 1 == 1 {
+            output.push(Region::Africa);
+        }
+        if value & 2 == 2 {
+            output.push(Region::Asia);
+        }
+        if value & 4 == 4 {
+            output.push(Region::Europe);
+        }
+        if value & 8 == 8 {
+            output.push(Region::NorthAmerica);
+        }
+        if value & 16 == 16 {
+            output.push(Region::SouthAmerica);
+        }
+        if value & 32 == 32 {
+            output.push(Region::Oceania);
+        }
+
+        output
     }
 }
 
