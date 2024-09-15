@@ -206,7 +206,7 @@ pub fn parse_message(message: &[u8], ip_address: IpAddress) -> Result<ParseOutpu
         Types::Destroy => {
             parse_destroy_lobby(&mut msg, ip_address).map(|del_info| ParseOutput::Destroy(del_info))
         }
-        Types::Get => parse_get(&mut msg, ip_address).map(|get| ParseOutput::Get(get)),
+        Types::Get => parse_get(&mut msg).map(|get| ParseOutput::Get(get)),
     }
 }
 
@@ -288,7 +288,7 @@ fn parse_destroy_lobby(
     Ok((ip, port, password))
 }
 
-fn parse_get(message: &mut IterU8, ip_address: IpAddress) -> Result<GetRequest, ParseError> {
+fn parse_get(message: &mut IterU8) -> Result<GetRequest, ParseError> {
     let filter: Filter = message
         .next()
         .ok_or(ParseError::MissingMessagePart)?
