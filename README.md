@@ -60,9 +60,9 @@ The password field is only needed if there is password protection on the lobby.
 Returns a paginated lobby list sorted by the given field.
 
 If Filter ≠ Search:
-| Type | Version | Filter | Regions |
-| ---- | ------- | ------ | ------- |
-| `u4` | `u4`    | `u8`   | `u8`    |
+| Type | Version | Filter | Regions | Page Number |
+| ---- | ------- | ------ | ------- | ----------- |
+| `u4` | `u4`    | `u8`   | `u8`    | `u8`        |
 
 If Filter = Search:
 | Type | Version | Filter | Search Name   |
