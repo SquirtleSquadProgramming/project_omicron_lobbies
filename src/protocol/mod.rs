@@ -8,6 +8,7 @@ pub enum ParseError {
     InvalidName = 44,
     MismatchedIP = 45,
     OutOfDate = 46,
+    InvalidFilter = 47,
     // 50+ is reserved currently
 }
 
@@ -16,6 +17,7 @@ pub enum ParseOutput {
     Create(Option<Lobby>),
     Modify(Option<Lobby>),
     Destroy((IpAddress, u16, Option<String>)),
+    Get(GetRequest),
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -93,6 +95,7 @@ mod parse_tests;
 mod version0;
 use std::fmt::Display;
 
+use version0::GetRequest;
 pub use version0::{parse_message, Flags, Region};
 
 use crate::database::Lobby;

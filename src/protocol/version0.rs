@@ -13,6 +13,7 @@ pub enum Types {
     Create = 0x1,
     Modify = 0x2,
     Destroy = 0x4,
+    Get = 0x8,
 }
 
 impl From<u8> for Types {
@@ -61,7 +62,7 @@ impl Into<Flags> for u8 {
 }
 
 #[repr(u8)]
-#[derive(Default, Debug, PartialEq, Clone)]
+#[derive(Default, Debug, PartialEq, Eq, Clone)]
 pub enum Region {
     #[default]
     Africa = 1,
@@ -113,7 +114,51 @@ impl Region {
             output.push(Region::Oceania);
         }
 
+        if output.is_empty() {
+            output = vec![
+                Region::Africa,
+                Region::Asia,
+                Region::Europe,
+                Region::NorthAmerica,
+                Region::SouthAmerica,
+                Region::Oceania,
+            ];
+        }
+
         output
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum GetRequest {
+    Standard((Filter, Vec<Region>)),
+    Search(String),
+}
+
+#[repr(u8)]
+#[derive(Debug, PartialEq, Eq)]
+pub enum Filter {
+    NameAscending = 0,
+    NameDescending = 1,
+    PlayerCountAscending = 2,
+    PlayerCountDescending = 3,
+    Search = 255,
+}
+
+impl TryInto<Filter> for u8 {
+    type Error = ParseError;
+
+    fn try_into(self) -> Result<Filter, Self::Error> {
+        let filter = match self {
+            0 => Filter::NameAscending,
+            1 => Filter::NameDescending,
+            2 => Filter::PlayerCountAscending,
+            3 => Filter::PlayerCountDescending,
+            255 => Filter::Search,
+            _ => Err(ParseError::InvalidFilter)?,
+        };
+
+        Ok(filter)
     }
 }
 
@@ -161,6 +206,7 @@ pub fn parse_message(message: &[u8], ip_address: IpAddress) -> Result<ParseOutpu
         Types::Destroy => {
             parse_destroy_lobby(&mut msg, ip_address).map(|del_info| ParseOutput::Destroy(del_info))
         }
+        Types::Get => parse_get(&mut msg, ip_address).map(|get| ParseOutput::Get(get)),
     }
 }
 
@@ -240,4 +286,8 @@ fn parse_destroy_lobby(
     let password = deserialise_string(message, MAX_LOBBY_PASS_SIZE)?;
 
     Ok((ip, port, password))
+}
+
+fn parse_get(message: &mut IterU8, ip_address: IpAddress) -> Result<GetRequest, ParseError> {
+    todo!()
 }

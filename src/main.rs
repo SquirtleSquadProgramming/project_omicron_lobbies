@@ -84,6 +84,7 @@ fn handle_connection(mut stream: TcpStream) {
         protocol::ParseOutput::Destroy((host_ip, port, password)) => {
             database::delete(host_ip, port, password)
         }
+        protocol::ParseOutput::Get(_) => todo!(),
     };
 
     let response: u8 = match database_result {
