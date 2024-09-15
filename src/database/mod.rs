@@ -13,16 +13,19 @@ pub enum DatabaseError {
     FailedToHashPassword = 53,
     FailedToVerifyPassword = 54,
     InvalidCredentials = 55,
+    InvalidFilter = 56,
 }
 
+pub const PAGE_SIZE: usize = 15;
+
 pub struct Page {
-    lobbies: Vec<Box<Lobby>>,
+    lobbies: Vec<Lobby>,
     page_number: usize,
     total_pages: usize,
 }
 
 impl Page {
-    pub fn new(lobbies: Vec<Box<Lobby>>, page_number: usize, total_pages: usize) -> Self {
+    pub fn new(lobbies: Vec<Lobby>, page_number: usize, total_pages: usize) -> Self {
         Page {
             lobbies,
             page_number,
@@ -33,14 +36,14 @@ impl Page {
 
 #[derive(Clone, Debug)]
 pub struct Lobby {
-    flags: Flags,
-    region: Region,
-    host_ip: IpAddress,
-    host_port: u16,
-    max_players: u8,
-    lobby_name: String,
-    password: String, // bcrypted!
-    current_players: u8,
+    pub flags: Flags,
+    pub region: Region,
+    pub host_ip: IpAddress,
+    pub host_port: u16,
+    pub max_players: u8,
+    pub lobby_name: String,
+    pub password: String, // bcrypted!
+    pub current_players: u8,
 }
 
 impl PartialEq for Lobby {

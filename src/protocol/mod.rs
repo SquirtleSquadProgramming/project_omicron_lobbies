@@ -91,11 +91,8 @@ impl Into<IpAddress> for std::net::SocketAddr {
 
 #[cfg(test)]
 mod parse_tests;
-
 mod version0;
-use std::fmt::Display;
-
-use version0::GetRequest;
-pub use version0::{parse_message, Flags, Region};
 
 use crate::database::Lobby;
+use std::fmt::Display;
+pub use version0::{parse_message, Filter, Flags, GetRequest, Region};

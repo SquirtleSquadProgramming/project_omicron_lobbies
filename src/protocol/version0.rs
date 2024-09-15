@@ -132,7 +132,7 @@ impl Region {
 #[derive(Debug, PartialEq, Eq)]
 pub enum GetRequest {
     Standard((Filter, Vec<Region>, usize)),
-    Search(String),
+    Search((String, usize)),
 }
 
 #[repr(u8)]
@@ -296,10 +296,11 @@ fn parse_get(message: &mut IterU8) -> Result<GetRequest, ParseError> {
         .try_into()?;
 
     let request = match filter {
-        Filter::Search => GetRequest::Search(
+        Filter::Search => GetRequest::Search((
             deserialise_string(message, MAX_LOBBY_NAME_SIZE)?
                 .ok_or(ParseError::MissingMessagePart)?,
-        ),
+            *message.next().ok_or(ParseError::MissingMessagePart)? as usize,
+        )),
         filter => GetRequest::Standard((filter, vec![], 0)),
     };
 

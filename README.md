@@ -65,9 +65,9 @@ If Filter ≠ Search:
 | `u4` | `u4`    | `u8`   | `u8`    | `u8`        |
 
 If Filter = Search:
-| Type | Version | Filter | Search Name   |
-| ---- | ------- | ------ | ------------- |
-| `u4` | `u4`    | `255`  | `u8`, n bytes |
+| Type | Version | Filter | Search Name   | Page Number |
+| ---- | ------- | ------ | ------------- | ----------- |
+| `u4` | `u4`    | `255`  | `u8`, n bytes | `u8`        |
 
 | ID    | Filter                  |
 | ----- | ----------------------- |

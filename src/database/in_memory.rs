@@ -1,5 +1,8 @@
-use super::{DatabaseError, Lobby};
-use crate::protocol::IpAddress;
+use super::{DatabaseError, Lobby, Page};
+use crate::{
+    database::PAGE_SIZE,
+    protocol::{Filter, GetRequest, IpAddress},
+};
 use bcrypt::verify;
 use std::collections::HashMap;
 
@@ -80,6 +83,63 @@ pub fn delete(
         } else {
             Err(DatabaseError::LobbyDoesNotExist)
         }
+    } else {
+        Err(DatabaseError::NotInitialised)
+    }
+}
+
+pub fn get(request: GetRequest) -> Result<Page, DatabaseError> {
+    if let Some(db) = unsafe { &mut DATABASE } {
+        let response = match request {
+            GetRequest::Standard((filter, regions, page_number)) => {
+                let mut lobbies = db
+                    .iter()
+                    .filter(|&(_, lobby)| regions.contains(&lobby.region))
+                    .map(|(_, lobby)| lobby)
+                    .collect::<Vec<_>>();
+
+                match filter {
+                    Filter::NameAscending => {
+                        lobbies.sort_by(|&left, &right| left.lobby_name.cmp(&right.lobby_name))
+                    }
+                    Filter::NameDescending => {
+                        lobbies.sort_by(|&left, &right| right.lobby_name.cmp(&left.lobby_name))
+                    }
+                    Filter::PlayerCountAscending => lobbies
+                        .sort_by(|&left, &right| left.current_players.cmp(&right.current_players)),
+                    Filter::PlayerCountDescending => lobbies
+                        .sort_by(|&left, &right| right.current_players.cmp(&left.current_players)),
+                    Filter::Search => Err(DatabaseError::InvalidFilter)?,
+                }
+
+                let num_lobbies = lobbies.len();
+                let lobbies: Vec<_> = lobbies
+                    .iter()
+                    .skip(page_number * PAGE_SIZE)
+                    .take(PAGE_SIZE)
+                    .map(|&lobby| lobby.clone())
+                    .collect();
+
+                Page::new(lobbies, page_number, num_lobbies / PAGE_SIZE)
+            }
+            GetRequest::Search((name, page_number)) => {
+                let lobbies = db
+                    .iter()
+                    .filter(|&(_, lobby)| lobby.lobby_name.contains(&name));
+
+                let num_lobbies = lobbies.clone().count();
+
+                let lobbies: Vec<_> = lobbies
+                    .skip(page_number * PAGE_SIZE)
+                    .take(PAGE_SIZE)
+                    .map(|(_, lobby)| lobby.clone())
+                    .collect();
+
+                Page::new(lobbies, page_number, num_lobbies / PAGE_SIZE)
+            }
+        };
+
+        Ok(response)
     } else {
         Err(DatabaseError::NotInitialised)
     }
