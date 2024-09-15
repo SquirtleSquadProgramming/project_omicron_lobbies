@@ -1,8 +1,8 @@
 # Protocol specification V0
-3 Types of messages:
-| Name:  | Create | Modify | Destroy |
-| ------ | ------ | ------ | ------- |
-| Value: | `0x1`  | `0x2`  | `0x4`   |
+4 Types of messages:
+| Name:  | Create | Modify | Destroy | Get   |
+| ------ | ------ | ------ | ------- | ----- |
+| Value: | `0x1`  | `0x2`  | `0x4`   | `0x8` |
 
 Binary, variable length protocol.
 
@@ -55,6 +55,20 @@ The password field is only needed if there is password protection on the lobby.
 | Type | Version | IpV  | IpV(4/6) Address     | Port  | Password?     |
 | ---- | ------- | ---- | -------------------- | ----- | ------------- |
 | `u4` | `u4`    | `u8` | `[u8; 4] / [u16; 8]` | `u16` | `u8`, n bytes |
+
+## Get:
+Returns a paginated lobby list sorted by the given field.
+
+| Type | Version | Search | Filter | Regions | Page Number | Search Name?  |
+| ---- | ------- | ------ | ------ | ------- | ----------- | ------------- |
+| `u4` | `u4`    | `u1`   | `u7`   | `u8`    | `u8`        | `u8`, n bytes |
+
+| ID    | Filter                  |
+| ----- | ----------------------- |
+| `0`   | Name Ascending          |
+| `1`   | Name Descending         |
+| `2`   | Player Count Ascending  |
+| `3`   | Player Count Descending |
 
 ## Server Response Codes:
 

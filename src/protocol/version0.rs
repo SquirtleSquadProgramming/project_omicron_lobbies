@@ -1,5 +1,5 @@
 use super::{IpAddress, ParseError, ParseOutput};
-use crate::database::Lobby;
+use crate::{database::Lobby, Serialise};
 
 const VERSION: u8 = 0;
 const MAX_LOBBY_NAME_SIZE: usize = 32;
@@ -13,6 +13,7 @@ pub enum Types {
     Create = 0x1,
     Modify = 0x2,
     Destroy = 0x4,
+    Get = 0x8,
 }
 
 impl From<u8> for Types {
@@ -21,6 +22,7 @@ impl From<u8> for Types {
             0x1 => Self::Create,
             0x2 => Self::Modify,
             0x4 => Self::Destroy,
+            0x8 => Self::Get,
             _ => Self::None,
         }
     }
@@ -37,6 +39,22 @@ pub struct Flags {
     is_ipv6: bool,
     is_public: bool,
     has_password: bool,
+}
+
+impl Serialise for Flags {
+    fn serialise(self) -> Vec<u8> {
+        let mut output = 0;
+        if self.is_ipv6 {
+            output += 1;
+        }
+        if self.is_public {
+            output += 2;
+        }
+        if self.has_password {
+            output += 4;
+        }
+        vec![output]
+    }
 }
 
 #[cfg(test)]
@@ -61,15 +79,21 @@ impl Into<Flags> for u8 {
 }
 
 #[repr(u8)]
-#[derive(Default, Debug, PartialEq, Clone)]
+#[derive(Default, Debug, PartialEq, Eq, Clone)]
 pub enum Region {
     #[default]
-    Africa,
-    Asia,
-    Europe,
-    NorthAmerica,
-    SouthAmerica,
-    Oceania,
+    Africa = 1,
+    Asia = 2,
+    Europe = 4,
+    NorthAmerica = 8,
+    SouthAmerica = 16,
+    Oceania = 32,
+}
+
+impl Serialise for Region {
+    fn serialise(self) -> Vec<u8> {
+        vec![self as u8]
+    }
 }
 
 impl TryInto<Region> for u8 {
@@ -77,16 +101,89 @@ impl TryInto<Region> for u8 {
 
     fn try_into(self) -> Result<Region, Self::Error> {
         let region = match self {
-            0 => Region::Africa,
-            1 => Region::Asia,
-            2 => Region::Europe,
-            3 => Region::NorthAmerica,
-            4 => Region::SouthAmerica,
-            5 => Region::Oceania,
+            1 => Region::Africa,
+            2 => Region::Asia,
+            4 => Region::Europe,
+            8 => Region::NorthAmerica,
+            16 => Region::SouthAmerica,
+            32 => Region::Oceania,
             _ => Err(ParseError::InvalidRegion)?,
         };
 
         Ok(region)
+    }
+}
+
+impl Region {
+    pub fn get_regions(value: u8) -> Vec<Region> {
+        let mut output = Vec::new();
+
+        if value & 1 == 1 {
+            output.push(Region::Africa);
+        }
+        if value & 2 == 2 {
+            output.push(Region::Asia);
+        }
+        if value & 4 == 4 {
+            output.push(Region::Europe);
+        }
+        if value & 8 == 8 {
+            output.push(Region::NorthAmerica);
+        }
+        if value & 16 == 16 {
+            output.push(Region::SouthAmerica);
+        }
+        if value & 32 == 32 {
+            output.push(Region::Oceania);
+        }
+
+        if output.is_empty() {
+            output = vec![
+                Region::Africa,
+                Region::Asia,
+                Region::Europe,
+                Region::NorthAmerica,
+                Region::SouthAmerica,
+                Region::Oceania,
+            ];
+        }
+
+        output
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct GetRequest {
+    pub filter: Filter,
+    pub regions: Vec<Region>,
+    pub page_num: u8,
+    pub search: Option<String>,
+}
+
+#[repr(u8)]
+#[derive(Debug, PartialEq, Eq)]
+pub enum Filter {
+    NameAscending = 0,
+    NameDescending = 1,
+    PlayerCountAscending = 2,
+    PlayerCountDescending = 3,
+    Search = 255,
+}
+
+impl TryInto<Filter> for u8 {
+    type Error = ParseError;
+
+    fn try_into(self) -> Result<Filter, Self::Error> {
+        let filter = match self {
+            0 => Filter::NameAscending,
+            1 => Filter::NameDescending,
+            2 => Filter::PlayerCountAscending,
+            3 => Filter::PlayerCountDescending,
+            255 => Filter::Search,
+            _ => Err(ParseError::InvalidFilter)?,
+        };
+
+        Ok(filter)
     }
 }
 
@@ -134,6 +231,7 @@ pub fn parse_message(message: &[u8], ip_address: IpAddress) -> Result<ParseOutpu
         Types::Destroy => {
             parse_destroy_lobby(&mut msg, ip_address).map(|del_info| ParseOutput::Destroy(del_info))
         }
+        Types::Get => parse_get(&mut msg).map(|get| ParseOutput::Get(get)),
     }
 }
 
@@ -213,4 +311,26 @@ fn parse_destroy_lobby(
     let password = deserialise_string(message, MAX_LOBBY_PASS_SIZE)?;
 
     Ok((ip, port, password))
+}
+
+fn parse_get(message: &mut IterU8) -> Result<GetRequest, ParseError> {
+    let search_and_filter = *message.next().ok_or(ParseError::MissingMessagePart)?;
+    let search = search_and_filter & 0x80 == 0x80;
+    let filter: Filter = (search_and_filter & 0x7F).try_into()?;
+
+    let regions = Region::get_regions(*message.next().ok_or(ParseError::MissingMessagePart)?);
+    let page_num = *message.next().ok_or(ParseError::MissingMessagePart)?;
+
+    let search = if search {
+        deserialise_string(message, MAX_LOBBY_NAME_SIZE)?
+    } else {
+        None
+    };
+
+    Ok(GetRequest {
+        filter,
+        regions,
+        page_num,
+        search,
+    })
 }

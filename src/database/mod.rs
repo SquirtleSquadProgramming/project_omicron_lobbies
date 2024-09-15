@@ -1,8 +1,11 @@
 #![allow(dead_code)]
 
-use crate::protocol::{Flags, IpAddress, Region};
+use crate::{
+    protocol::{Flags, IpAddress, Region},
+    Serialise,
+};
 use bcrypt::{hash, DEFAULT_COST};
-pub use in_memory::{create, dbg_database, delete, init, modify};
+pub use in_memory::{create, dbg_database, delete, get, init, modify};
 
 #[repr(u8)]
 #[derive(Debug)]
@@ -13,18 +16,66 @@ pub enum DatabaseError {
     FailedToHashPassword = 53,
     FailedToVerifyPassword = 54,
     InvalidCredentials = 55,
+    InvalidFilter = 56,
+    BadMessage = 57,
+}
+
+pub const PAGE_SIZE: u8 = 15;
+
+pub struct Page {
+    lobbies: Vec<Lobby>,
+    page_number: u8,
+    total_pages: u8,
+}
+
+impl Page {
+    pub fn new(lobbies: Vec<Lobby>, page_number: u8, total_pages: u8) -> Self {
+        Page {
+            lobbies,
+            page_number,
+            total_pages,
+        }
+    }
+}
+
+impl Serialise for Page {
+    fn serialise(self) -> Vec<u8> {
+        let mut output = self
+            .lobbies
+            .iter()
+            .map(|l| l)
+            .collect::<Vec<_>>()
+            .serialise();
+        output.push(self.page_number);
+        output.push(self.total_pages);
+        output
+    }
 }
 
 #[derive(Clone, Debug)]
 pub struct Lobby {
-    flags: Flags,
-    region: Region,
-    host_ip: IpAddress,
-    host_port: u16,
-    max_players: u8,
-    lobby_name: String,
-    password: String, // bcrypted!
-    current_players: u8,
+    pub flags: Flags,
+    pub region: Region,
+    pub host_ip: IpAddress,
+    pub host_port: u16,
+    pub max_players: u8,
+    pub lobby_name: String,
+    pub password: String, // bcrypted!
+    pub current_players: u8,
+}
+
+impl Serialise for &Lobby {
+    fn serialise(self) -> Vec<u8> {
+        let mut output = self.flags.clone().serialise();
+        output.extend(self.region.clone().serialise());
+        output.extend(self.host_ip.serialise());
+        output.extend(self.host_port.serialise());
+        output.push(self.max_players);
+        output.extend(self.lobby_name.clone().serialise());
+        output.push(self.current_players);
+        output.insert(0, output.len() as u8);
+        output
+    }
 }
 
 impl PartialEq for Lobby {

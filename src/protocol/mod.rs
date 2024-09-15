@@ -8,6 +8,7 @@ pub enum ParseError {
     InvalidName = 44,
     MismatchedIP = 45,
     OutOfDate = 46,
+    InvalidFilter = 47,
     // 50+ is reserved currently
 }
 
@@ -16,6 +17,7 @@ pub enum ParseOutput {
     Create(Option<Lobby>),
     Modify(Option<Lobby>),
     Destroy((IpAddress, u16, Option<String>)),
+    Get(GetRequest),
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -87,12 +89,21 @@ impl Into<IpAddress> for std::net::SocketAddr {
     }
 }
 
+impl Serialise for IpAddress {
+    fn serialise(self) -> Vec<u8> {
+        let mut output = Vec::new();
+        match self {
+            IpAddress::IpV4(octets) => output.extend(octets),
+            IpAddress::IpV6(hexets) => hexets.iter().for_each(|hex| output.extend(hex.serialise())),
+        }
+        output
+    }
+}
+
 #[cfg(test)]
 mod parse_tests;
-
 mod version0;
+
+use crate::{database::Lobby, Serialise};
 use std::fmt::Display;
-
-pub use version0::{parse_message, Flags, Region};
-
-use crate::database::Lobby;
+pub use version0::{parse_message, Filter, Flags, GetRequest, Region};
