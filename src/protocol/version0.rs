@@ -217,7 +217,11 @@ pub fn parse_message(message: &[u8], ip_address: IpAddress) -> Result<ParseOutpu
     if version != VERSION {
         return Err(ParseError::OutOfDate);
     }
+
     let typ: Types = (m_type >> 4).into();
+    if message.len() < 2 {
+        return Err(ParseError::EmptyMessage);
+    }
     let mut msg = message[1..].iter();
 
     match typ {
@@ -253,7 +257,7 @@ fn parse_create_lobby(
     let port = {
         let high = *message.next().ok_or(ParseError::MissingMessagePart)? as u16;
         let low = *message.next().ok_or(ParseError::MissingMessagePart)? as u16;
-        (high << 8) + low
+        (high << 8) | low
     };
 
     let region: Region = message
@@ -305,7 +309,7 @@ fn parse_destroy_lobby(
     let port = {
         let high = *message.next().ok_or(ParseError::MissingMessagePart)? as u16;
         let low = *message.next().ok_or(ParseError::MissingMessagePart)? as u16;
-        (high << 8) + low
+        (high << 8) | low
     };
 
     let password = deserialise_string(message, MAX_LOBBY_PASS_SIZE)?;
