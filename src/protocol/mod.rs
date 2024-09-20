@@ -39,7 +39,7 @@ impl IpAddress {
             for i in 0..8 {
                 let part1 = *msg.next().ok_or(ParseError::MissingMessagePart)? as u16;
                 let part2 = *msg.next().ok_or(ParseError::MissingMessagePart)? as u16;
-                parts[i] = (part1 << 8) + part2;
+                parts[i] = (part1 << 8) | part2;
             }
 
             Ok(IpAddress::IpV6(parts))

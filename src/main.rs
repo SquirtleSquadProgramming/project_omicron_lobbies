@@ -141,9 +141,10 @@ fn handle_connection(mut stream: TcpStream) {
 
     if !response_body.is_empty() {
         let length = response_body.len() as u16;
-        response_body.insert(0, (length & 0xFF) as u8);
-        response_body.insert(0, (length >> 8) as u8);
-        if let Err(err) = stream.write_all(&response_body) {
+        let mut new_body = length.serialise();
+        new_body.extend(response_body);
+
+        if let Err(err) = stream.write_all(&new_body) {
             etprintln!("Failed to write response_body: {err:?}");
         } else {
             etprintln!("Sent page to client.");
@@ -159,6 +160,7 @@ fn get_message(stream: &mut TcpStream, client_address: SocketAddr) -> Option<Vec
             return None;
         }
     };
+
     let recv_thread = thread::spawn(move || {
         let mut length: [u8; 1] = [0];
         if let Err(err) = thread_stream.read_exact(&mut length) {

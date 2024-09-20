@@ -45,13 +45,13 @@ impl Serialise for Flags {
     fn serialise(self) -> Vec<u8> {
         let mut output = 0;
         if self.is_ipv6 {
-            output += 1;
+            output |= 1;
         }
         if self.is_public {
-            output += 2;
+            output |= 2;
         }
         if self.has_password {
-            output += 4;
+            output |= 4;
         }
         vec![output]
     }
